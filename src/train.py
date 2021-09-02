@@ -157,6 +157,10 @@ def train_graph(_run, features_as_pos, n_epochs, test_graphs, model, optimizer,
     model.save_weights(checkpoint_path.format(epoch=n_epochs, experiment_folder=experiment_folder))
 
     # copyfile(os.path.join(experiment_folder, 'metrics.json'), os.path.join(experiment_folder, 'metrics.json'))
+
+    # Need to make sure we are saving 'metrics.json'
+    _run._emit_heartbeat()
+
     plot_single_experiment(experiment_folder)
 
     # model.load_weights(
