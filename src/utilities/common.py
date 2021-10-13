@@ -1,16 +1,17 @@
 import random
-from typing import List, Union
+from typing import List, Union, Optional
 
 import networkx as nx
 import numpy as np
 import tensorflow as tf
+from sacred import Ingredient
 
 from models import gcn, dmon
 from src.utilities.converters import SalsaConverter
 from src.utilities.graph import normalize_graph
-from sacred import Ingredient
 
 common_ingredient = Ingredient('common')
+
 
 @common_ingredient.config
 def cfg():
@@ -27,6 +28,7 @@ def cfg():
     select_frames_random = False
     dataset_path = 'Data/CMU_salsa_full'
     seed = 42
+
 
 @common_ingredient.capture
 def get_training_and_validation_graphs(all_graphs: List[nx.Graph],
@@ -71,7 +73,6 @@ def create_dmon(n_clusters: int,
                 training_graph: nx.Graph):
     adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph,
                                                                                   features_as_pos=features_as_pos)
-
     feature_size = features.shape[1]
 
     # Create model input placeholders of appropriate size
@@ -83,6 +84,39 @@ def create_dmon(n_clusters: int,
                        n_clusters,
                        collapse_regularization,
                        dropout_rate)
+    optimizer = tf.keras.optimizers.Adam(learning_rate)
+    model.compile(optimizer)
+    return model, optimizer
+
+
+@common_ingredient.capture
+def create_dmon_ri_loss(n_clusters: int,
+                        architecture: List[int],
+                        collapse_regularization: float,
+                        dropout_rate: float,
+                        features_as_pos: bool,
+                        learning_rate: float,
+                        training_graph: nx.Graph):
+    adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph,
+                                                                                  features_as_pos=features_as_pos)
+    memberships = nx.get_node_attributes(training_graph, 'membership')
+    labels = np.zeros(shape=(len(memberships), max(memberships, key=memberships.get)))
+    for k, v in memberships.items():
+        labels[k-1, v] = 1
+
+    feature_size = features.shape[1]
+
+    # Create model input placeholders of appropriate size
+    input_features = tf.keras.layers.Input(shape=(feature_size,))
+    input_graph = tf.keras.layers.Input((n_nodes,), sparse=True)
+    input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True)
+    input_labels = tf.keras.layers.Input(memberships)
+
+    model = build_dmon_ri_loss(input_features, input_graph, input_adjacency, architecture,
+                               n_clusters,
+                               collapse_regularization,
+                               dropout_rate,
+                               input_labels=input_labels)
     optimizer = tf.keras.optimizers.Adam(learning_rate)
     model.compile(optimizer)
     return model, optimizer
@@ -103,6 +137,7 @@ def convert_scipy_sparse_to_sparse_tensor(
         np.vstack([matrix.row, matrix.col]).T, matrix.data.astype(np.float32),
         matrix.shape)
 
+
 @common_ingredient.capture
 def build_dmon(input_features,
                input_graph,
@@ -110,7 +145,7 @@ def build_dmon(input_features,
                architecture,
                n_clusters,
                collapse_regularization,
-               dropout_rate
+               dropout_rate,
                ):
     """Builds a Deep Modularity Network (DMoN) model from the Keras inputs.
 
@@ -131,6 +166,38 @@ def build_dmon(input_features,
         dropout_rate=dropout_rate)([output, input_adjacency])
     return tf.keras.Model(
         inputs=[input_features, input_graph, input_adjacency],
+        outputs=[pool, pool_assignment])
+
+
+@common_ingredient.capture
+def build_dmon_ri_loss(input_features,
+                       input_graph,
+                       input_adjacency,
+                       architecture,
+                       n_clusters,
+                       collapse_regularization,
+                       dropout_rate,
+                       input_labels: Optional = None
+                       ):
+    """Builds a Deep Modularity Network (DMoN) model from the Keras inputs.
+
+    Args:
+      input_features: A dense [n, d] Keras input for the node features.
+      input_graph: A sparse [n, n] Keras input for the normalized graph.
+      input_adjacency: A sparse [n, n] Keras input for the graph adjacency.
+
+    Returns:
+      Built Keras DMoN model.
+    """
+    output = input_features
+    for n_channels in architecture:
+        output = gcn.GCN(int(n_channels))([output, input_graph])
+    pool, pool_assignment = dmon.DMoNWithRILoss(
+        n_clusters,
+        collapse_regularization=collapse_regularization,
+        dropout_rate=dropout_rate)([output, input_adjacency, input_labels])
+    return tf.keras.Model(
+        inputs=[input_features, input_graph, input_adjacency, input_labels],
         outputs=[pool, pool_assignment])
 
 
