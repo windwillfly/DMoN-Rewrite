@@ -72,21 +72,17 @@ def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, predic
     plt.close(fig)
 
 
-def show_gt_graph(graph: nx.Graph, frame_no: str, draw_frustum=True):
+def show_gt_graph(graph: nx.Graph, **kwargs):
     fig, ax = plt.subplots(figsize=(10.8, 7.2))
-
-    ax.set_title(f'Salsa Cocktail Party - Frame {frame_no}')
 
     ax.axis('equal')
 
-    draw_gt_graph(ax, graph, draw_frustum)
+    draw_gt_graph(ax, graph, **kwargs)
 
     ax.set_axis_on()
     ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
 
     plt.show()
-    # os.makedirs('graphs', exist_ok=True)
-    # plt.savefig(f'graphs/dmon_{frame_no}.png')
     return
 
 
@@ -101,7 +97,9 @@ def draw_predictions(graph: nx.Graph, predictions: Optional[List] = None):
         plt.scatter(*new_pos, 200, color=color, edgecolors='black', linewidths=1, alpha=0.4)
 
 
-def draw_gt_graph(ax, graph: nx.Graph, draw_frustum=True):
+def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Frame 0", draw_frustum=True):
+    ax.set_title(title)
+
     node_pos = {node_n: feat[:2] for feat, node_n in
                 zip(nx.get_node_attributes(graph, 'feats').values(),
                     nx.get_node_attributes(graph, 'person_no'))}
@@ -125,7 +123,7 @@ def draw_gt_graph(ax, graph: nx.Graph, draw_frustum=True):
     for person_feat, person_no in zip(nx.get_node_attributes(graph, 'feats').values(),
                                       nx.get_node_attributes(graph, 'person_no').values()):
         text_pos = Point(*person_feat[:2]) + Point(0.15, 0.15)
-        ax.text(*text_pos, person_no)
+        #ax.text(*text_pos, person_no)
 
 
 def toy_frustum_example() -> nx.Graph:
@@ -168,11 +166,11 @@ def toy_frustum_example() -> nx.Graph:
                   {'membership': 4, 'color': '#01579b', 'feats': [13, 12, - (math.pi + 3 * math.pi / 4), 0],
                    'person_no': 9, 'ts': 0}))
 
-    edges.append((0, 1))
-    edges.append((2, 3))
-    edges.append((4, 5))
-    edges.append((6, 7))
-    edges.append((8, 9))
+    #edges.append((0, 1))
+    #edges.append((2, 3))
+    #edges.append((4, 5))
+    #edges.append((6, 7))
+    #edges.append((8, 9))
 
     g.add_nodes_from(nodes)
     g.add_edges_from(edges)
@@ -182,4 +180,4 @@ def toy_frustum_example() -> nx.Graph:
 
 if __name__ == '__main__':
     graph = toy_frustum_example()
-    show_gt_graph(graph, "0")
+    show_gt_graph(graph, title='Example Unconnected Frustums')
