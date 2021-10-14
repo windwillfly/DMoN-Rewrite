@@ -152,3 +152,8 @@ class DMoNWithRILoss(DMoN):
             features_pooled = tf.matmul(assignments_pooling, features_pooled)
 
         return assignments, features_pooled
+
+    def ri_loss(self, assignments, labels):
+        print(assignments)
+        print(labels)
+        return assignments

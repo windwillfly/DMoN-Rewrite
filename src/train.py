@@ -112,6 +112,7 @@ def train_graph(_run, features_as_pos, n_epochs, test_graphs, model, optimizer,
             features = inputs['feat']
             graph = inputs['graph']
             graph_normalized = inputs['graph_norm']
+            labels = inputs['labels']
             # TO-DO add labels to input
             loss_values, grads = grad(model, [features, graph_normalized, graph])
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
@@ -221,7 +222,7 @@ def main(_run: sacred.run.Run):
 
     all_graphs = convert_salsa_to_graphs()
 
-    model, optimizer = create_dmon_ri_loss(training_graph=all_graphs[0])
+    model, optimizer = create_dmon(training_graph=all_graphs[0])
 
     training_graphs, validation_graphs = get_training_and_validation_graphs(all_graphs)
 

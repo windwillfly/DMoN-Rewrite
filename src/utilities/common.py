@@ -107,10 +107,10 @@ def create_dmon_ri_loss(n_clusters: int,
     feature_size = features.shape[1]
 
     # Create model input placeholders of appropriate size
-    input_features = tf.keras.layers.Input(shape=(feature_size,))
-    input_graph = tf.keras.layers.Input((n_nodes,), sparse=True)
-    input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True)
-    input_labels = tf.keras.layers.Input(memberships)
+    input_features = tf.keras.layers.Input(shape=(feature_size,), name='input_features')
+    input_graph = tf.keras.layers.Input((n_nodes,), sparse=True, name='input_graph_norm')
+    input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True, name='input_adjacency')
+    input_labels = tf.keras.layers.Input((n_nodes,), name='input_labels')
 
     model = build_dmon_ri_loss(input_features, input_graph, input_adjacency, architecture,
                                n_clusters,
