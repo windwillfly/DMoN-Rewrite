@@ -99,10 +99,6 @@ def create_dmon_ri_loss(n_clusters: int,
                         training_graph: nx.Graph):
     adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph,
                                                                                   features_as_pos=features_as_pos)
-    memberships = nx.get_node_attributes(training_graph, 'membership')
-    labels = np.zeros(shape=(len(memberships), max(memberships, key=memberships.get)))
-    for k, v in memberships.items():
-        labels[k-1, v] = 1
 
     feature_size = features.shape[1]
 
@@ -110,7 +106,7 @@ def create_dmon_ri_loss(n_clusters: int,
     input_features = tf.keras.layers.Input(shape=(feature_size,), name='input_features')
     input_graph = tf.keras.layers.Input((n_nodes,), sparse=True, name='input_graph_norm')
     input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True, name='input_adjacency')
-    input_labels = tf.keras.layers.Input((n_nodes,), name='input_labels')
+    input_labels = tf.keras.layers.Input((n_clusters,), name='input_labels', dtype='int64')
 
     model = build_dmon_ri_loss(input_features, input_graph, input_adjacency, architecture,
                                n_clusters,
@@ -192,7 +188,7 @@ def build_dmon_ri_loss(input_features,
     output = input_features
     for n_channels in architecture:
         output = gcn.GCN(int(n_channels))([output, input_graph])
-    pool, pool_assignment = dmon.DMoNWithRILoss(
+    pool, pool_assignment = dmon.DmonRiLoss(
         n_clusters,
         collapse_regularization=collapse_regularization,
         dropout_rate=dropout_rate)([output, input_adjacency, input_labels])
@@ -224,9 +220,12 @@ def generate_graph_inputs(graph: nx.Graph, features_as_pos: bool):
     return adjacency, features, new_graph, graph_normalized, n_nodes
 
 
-def obtain_clusters(features, graph, graph_normalized, model):
+def obtain_clusters(features, graph, graph_normalized, model, labels: Optional = None):
     # Obtain the cluster assignments.
-    _, assignments = model([features, graph_normalized, graph], training=False)
+    if len(model.input) == 3:
+        _, assignments = model([features, graph_normalized, graph], training=False)
+    else:
+        _, assignments = model([features, graph_normalized, graph, labels], training=False)
     assignments = assignments.numpy()
     clusters = assignments.argmax(axis=1)  # Convert soft to hard clusters.
     return clusters

@@ -21,6 +21,7 @@ Deep Modularity Network (DMoN) layer implementation as presented in
 DMoN optimizes modularity clustering objective in a fully unsupervised regime.
 """
 import tensorflow as tf
+from sklearn.metrics import adjusted_rand_score
 
 
 class DMoN(tf.keras.layers.Layer):
@@ -131,29 +132,45 @@ class DMoN(tf.keras.layers.Layer):
         assert features.shape[0] == adjacency.shape[0]
 
 
-class DMoNWithRILoss(DMoN):
+class DmonRiLoss(DMoN):
 
     def call(self, inputs):
         features, adjacency, labels = inputs
 
         self.assert_input_valid(adjacency, features)
-        assignments, features_pooled = self.create_network(adjacency, features)
-        self.add_loss(self.ri_loss(assignments, labels))
+        assignments, features_pooled, ri_loss = self.create_network(adjacency, features, labels)
+        self.add_loss(ri_loss)
         return features_pooled, assignments
 
-    def create_network(self, adjacency, features):
+    def create_network(self, adjacency, features, labels):
         assignments = tf.nn.softmax(self.transform(features), axis=1)
-        cluster_sizes = tf.math.reduce_sum(assignments, axis=0)  # Size [k].
-        assignments_pooling = assignments / cluster_sizes  # Size [n, k].
+        features_pooled = tf.Variable(initial_value=1)
+        # cluster_sizes = tf.math.reduce_sum(assignments, axis=0)  # Size [k].
+        # assignments_pooling = assignments / cluster_sizes  # Size [n, k].
+        #
+        # features_pooled = tf.matmul(assignments_pooling, features, transpose_a=True)
+        # features_pooled = tf.nn.selu(features_pooled)
+        # if self.do_unpooling:
+        #     features_pooled = tf.matmul(assignments_pooling, features_pooled)
 
-        features_pooled = tf.matmul(assignments_pooling, features, transpose_a=True)
-        features_pooled = tf.nn.selu(features_pooled)
-        if self.do_unpooling:
-            features_pooled = tf.matmul(assignments_pooling, features_pooled)
+        predicted_clusters = tf.math.argmax(assignments, axis=1)
+        label_clusters = tf.math.argmax(labels, axis=1)
+        x = label_clusters
+        y = predicted_clusters
 
-        return assignments, features_pooled
+        x_ = tf.expand_dims(x, 0)
+        y_ = tf.expand_dims(y, 0)
+        x__ = tf.expand_dims(x, 1)
+        y__ = tf.expand_dims(y, 1)
+        x_conf = tf.reshape(tf.equal(x_, x__), [-1])
+        y_conf = tf.reshape(tf.equal(y_, y__), [-1])
+        contingency = tf.math.confusion_matrix(x_conf, y_conf)
 
-    def ri_loss(self, assignments, labels):
-        print(assignments)
-        print(labels)
-        return assignments
+        self_pair_count = tf.reduce_sum(tf.cast(tf.equal(x, x), tf.int32))
+        diag_sum = tf.linalg.trace(contingency) - self_pair_count
+        all_sum = tf.math.reduce_sum(contingency) - self_pair_count
+
+        final_rand_score = diag_sum / all_sum
+        rand_loss = 1 - final_rand_score
+
+        return assignments, features_pooled, rand_loss
