@@ -5,6 +5,7 @@ import json
 from typing import List, Optional
 
 import matplotlib.pyplot as plt
+import matplotlib.colors as colors
 import networkx as nx
 
 from utilities.math_utils import calc_frustum, Point
@@ -90,11 +91,13 @@ def draw_predictions(graph: nx.Graph, predictions: Optional[List] = None):
     distinct_colors = ['#e6194b', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#911eb4', '#46f0f0', '#f032e6',
                        '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3',
                        '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000']
+    distinct_marker_shapes = ['v', '^', '<', '>', 's', 'P', '*', 'X', 'D', 'H', '+', 'x', '1', '2', '3', '4']
     predicted_node_colors = [distinct_colors[i] for i in predictions]
-    for color, feature in zip(predicted_node_colors, nx.get_node_attributes(graph, 'feats').values()):
+    predicted_node_shapes = [distinct_marker_shapes[i] for i in predictions]
+    for color, shape, feature in zip(predicted_node_colors, predicted_node_shapes, nx.get_node_attributes(graph, 'feats').values()):
         pos = feature[:2]
-        new_pos = list(map(operator.add, pos, [0.05, 0.2]))
-        plt.scatter(*new_pos, 200, color=color, edgecolors='black', linewidths=1, alpha=0.4)
+        new_pos = list(map(operator.add, pos, [0.05, 0.25]))
+        plt.scatter(*new_pos, 200, marker=shape, color=color, edgecolors='black', linewidths=1, alpha=0.7)
 
 
 def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Frame 0", draw_frustum=True):
@@ -117,7 +120,9 @@ def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Fram
         for feat, color in zip(nx.get_node_attributes(graph, 'feats').values(),
                                nx.get_node_attributes(graph, 'color').values()):
             frustum = calc_frustum(feat)
-            t1 = plt.Polygon(frustum, alpha=0.1, edgecolor='black', facecolor=color, linewidth=2)
+            facecolor = (*colors.to_rgba(color)[:3], 0.1)
+            edgecolor = (*colors.to_rgba('black')[:3], 0.5)
+            t1 = plt.Polygon(frustum, edgecolor=edgecolor, facecolor=facecolor, linewidth=0.75)
             plt.gca().add_patch(t1)
 
     for person_feat, person_no in zip(nx.get_node_attributes(graph, 'feats').values(),

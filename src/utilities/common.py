@@ -64,10 +64,7 @@ def convert_salsa_to_graphs(dataset_path: str,
 
 
 @common_ingredient.capture
-def create_dmon(n_clusters: int,
-                architecture: List[int],
-                collapse_regularization: float,
-                dropout_rate: float,
+def create_dmon(
                 features_as_pos: bool,
                 learning_rate: float,
                 training_graph: nx.Graph):
@@ -80,36 +77,7 @@ def create_dmon(n_clusters: int,
     input_graph = tf.keras.layers.Input((n_nodes,), sparse=True)
     input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True)
 
-    model = build_dmon(input_features, input_graph, input_adjacency, architecture,
-                       n_clusters,
-                       collapse_regularization,
-                       dropout_rate)
-    optimizer = tf.keras.optimizers.Adam(learning_rate)
-    model.compile(optimizer)
-    return model, optimizer
-
-
-@common_ingredient.capture
-def create_dmon_ri_loss(n_clusters: int,
-                        architecture: List[int],
-                        collapse_regularization: float,
-                        dropout_rate: float,
-                        features_as_pos: bool,
-                        learning_rate: float,
-                        training_graph: nx.Graph):
-    adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph,
-                                                                                  features_as_pos=features_as_pos)
-
-    feature_size = features.shape[1]
-
-    # Create model input placeholders of appropriate size
-    input_features = tf.keras.layers.Input(shape=(feature_size,), name='input_features')
-    input_graph = tf.keras.layers.Input((n_nodes,), sparse=True, name='input_graph_norm')
-    input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True, name='input_adjacency')
-    input_labels = tf.keras.layers.Input((n_clusters,), name='input_labels', dtype='int64')
-
-    model = build_dmon_ri_loss(input_features, input_graph, input_adjacency,
-                               input_labels=input_labels)
+    model = build_dmon(input_features, input_graph, input_adjacency)
     optimizer = tf.keras.optimizers.Adam(learning_rate)
     model.compile(optimizer)
     return model, optimizer
@@ -163,37 +131,6 @@ def build_dmon(input_features,
 
 
 @common_ingredient.capture
-def build_dmon_ri_loss(input_features,
-                       input_graph,
-                       input_adjacency,
-                       architecture,
-                       n_clusters,
-                       collapse_regularization,
-                       dropout_rate,
-                       input_labels: Optional = None
-                       ):
-    """Builds a Deep Modularity Network (DMoN) model from the Keras inputs.
-
-    Args:
-      input_features: A dense [n, d] Keras input for the node features.
-      input_graph: A sparse [n, n] Keras input for the normalized graph.
-      input_adjacency: A sparse [n, n] Keras input for the graph adjacency.
-
-    Returns:
-      Built Keras DMoN model.
-    """
-    output = input_features
-    for n_channels in architecture:
-        output = gcn.GCN(int(n_channels))([output, input_graph])
-    pool, pool_assignment = dmon.DmonRiLoss(
-        n_clusters,
-        collapse_regularization=collapse_regularization,
-        dropout_rate=dropout_rate)([output, input_adjacency, input_labels])
-    return tf.keras.Model(
-        inputs=[input_features, input_graph, input_adjacency, input_labels],
-        outputs=[pool, pool_assignment])
-
-
 def generate_graph_inputs(graph: nx.Graph, features_as_pos: bool):
     # adjacency, features, labels, label_indices = load_npz(FLAGS.graph_path)
     adjacency = nx.adj_matrix(graph)

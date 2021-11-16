@@ -42,7 +42,7 @@ from tqdm import tqdm
 
 import utilities.metrics as metrics
 from utilities.common import get_training_and_validation_graphs, convert_salsa_to_graphs, create_dmon, \
-    generate_graph_inputs, obtain_clusters, common_ingredient, create_dmon_ri_loss
+    generate_graph_inputs, obtain_clusters, common_ingredient
 from utilities.metrics import grode
 from utilities.timer import Timer
 from utilities.visualization import show_results_on_graph, plot_single_experiment
@@ -54,24 +54,12 @@ ex = Experiment('DMoN Experiments', ingredients=[common_ingredient])
 
 @ex.config
 def cfg():
-    architecture = [4, 4, 2]
-    collapse_regularization = 0.2
-    dropout_rate = 0.4
-    n_clusters = 8
     n_epochs = 250
-    learning_rate = 0.0012
-    frustum_length = 1
-    frustum_angle = 1
-    edge_cutoff = 1
-    features_as_pos = True
-    eval_mode = 'normal'
-    total_frames = 'max'
-    dataset_path = 'Data/CMU_salsa_full'
     seed = 42
 
 
 @ex.capture
-def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model, optimizer,
+def train_graph(_run, n_epochs, test_graphs, model, optimizer,
                 training_graphs, validation_graphs):
     t = Timer()
     t.start('Preparation')
@@ -80,16 +68,14 @@ def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model,
     print(f'Experiment folder: {experiment_folder}')
     dmon_training_inputs = []
     for g in training_graphs:
-        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(g,
-                                                                                      features_as_pos=features_as_pos)
+        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(g)
         labels = np.array([m for m in nx.get_node_attributes(g, 'membership').values()])
         dmon_training_inputs.append(
             {'graph': graph, 'feat': features, 'graph_norm': graph_normalized, 'labels': labels})
 
     dmon_validation_inputs = []
     for g in validation_graphs:
-        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(g,
-                                                                                      features_as_pos=features_as_pos)
+        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(g)
         labels = np.array([m for m in nx.get_node_attributes(g, 'membership').values()])
         dmon_validation_inputs.append(
             {'graph': graph, 'feat': features, 'graph_norm': graph_normalized, 'labels': labels})
@@ -176,8 +162,7 @@ def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model,
         labels = np.array([(m) for m in nx.get_node_attributes(training_graph, 'membership').values()])
         label_indices = np.arange(labels.shape[0])
 
-        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph,
-                                                                                      features_as_pos=features_as_pos)
+        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph)
         clusters = obtain_clusters(features, graph, graph_normalized, model)
 
         _, _, _, _, _, card_f1_score = grode(labels, clusters)

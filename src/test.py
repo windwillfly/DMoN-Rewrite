@@ -5,33 +5,19 @@ import numpy as np
 import tensorflow as tf
 from sacred import Experiment
 
-from utilities.common import generate_graph_inputs, build_dmon
+from utilities.common import generate_graph_inputs, build_dmon, common_ingredient, convert_salsa_to_graphs
 from utilities.converters import SalsaConverter
 from utilities.metrics import grode, pairwise_precision, pairwise_recall
+from utilities.visualization import show_results_on_graph
 
 tf.compat.v1.enable_v2_behavior()
 
-ex = Experiment('DMoN Experiments')
-
-
-# ex.observers.append(FileStorageObserver('experiments'))
+ex = Experiment('DMoN Experiments', ingredients=[common_ingredient])
 
 
 @ex.config
 def cfg():
-    architecture = [4]
-    collapse_regularization = 0.2
-    dropout_rate = 0.5
-    n_clusters = 8
-    n_epochs = 500
-    learning_rate = 0.0008
-    frustum_length = 1
-    frustum_angle = 1
-    edge_cutoff = 1
-    features_as_pos = True
-    total_frames = 'max'
-    dataset_path = 'data/salsa_ps'
-    checkpoint_path = 'experiments/Salsa Original - Full frames/checkpoints/cp-best_full_acc.ckpt'
+    checkpoint_path = ''
     seed = 42
 
 
@@ -44,22 +30,18 @@ def obtain_clusters(features, graph, graph_normalized, model):
 
 
 @ex.automain
-def main(edge_cutoff, frustum_length, frustum_angle, features_as_pos, architecture, n_clusters, collapse_regularization,
-         dropout_rate, total_frames, checkpoint_path, learning_rate, dataset_path, _run):
+def main(checkpoint_path, _run):
     tf.config.experimental.set_visible_devices([], 'GPU')
 
     print('Starting test with config:')
     print(f'{_run.config}')
 
-    sc = SalsaConverter(root_folder=dataset_path, edges_from_gt=False)
-    all_graphs = sc.convert(edge_distance_threshold=edge_cutoff, frustum_length=frustum_length,
-                            frustum_angle=frustum_angle)
+    all_graphs = convert_salsa_to_graphs()
 
     training_graph = all_graphs[0]
     labels = np.array([(m) for m in nx.get_node_attributes(training_graph, 'membership').values()])
     label_indices = np.arange(labels.shape[0])
-    adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph,
-                                                                                  features_as_pos=features_as_pos)
+    adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph)
 
     feature_size = features.shape[1]
     experiment_folder = _run.observers[0].dir
@@ -71,12 +53,9 @@ def main(edge_cutoff, frustum_length, frustum_angle, features_as_pos, architectu
     input_graph = tf.keras.layers.Input((n_nodes,), sparse=True)
     input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True)
 
-    model = build_dmon(input_features, input_graph, input_adjacency, architecture,
-                       n_clusters,
-                       collapse_regularization,
-                       dropout_rate)
+    model = build_dmon(input_features, input_graph, input_adjacency)
 
-    optimizer = tf.keras.optimizers.Adam(learning_rate)
+    optimizer = tf.keras.optimizers.Adam()
     model.compile(optimizer, None)
     model.load_weights(checkpoint_path)
 
@@ -86,15 +65,10 @@ def main(edge_cutoff, frustum_length, frustum_angle, features_as_pos, architectu
     training_scores = []
     prediction_probs = []
 
-    if isinstance(total_frames, str) and total_frames == 'max':
-        total_frames = len(all_graphs)
-
-    random_indexes = range(total_frames)
 
     for frame_no, training_graph in enumerate(all_graphs):
         labels = np.array([m for m in nx.get_node_attributes(training_graph, 'membership').values()])
-        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph,
-                                                                                      features_as_pos=features_as_pos)
+        adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph)
         clusters, assignments = obtain_clusters(features, graph, graph_normalized, model)
         prediction_probs.append(assignments)
 
@@ -110,8 +84,11 @@ def main(edge_cutoff, frustum_length, frustum_angle, features_as_pos, architectu
         all_card_score.append(card_f1_score)
         all_full_score.append(full_f1_score)
 
-        if frame_no in random_indexes:
-            training_scores.append([card_f1_score, full_f1_score])
+        graphs_folder = os.path.join(experiment_folder, 'graphs')
+        os.makedirs(graphs_folder, exist_ok=True)
+        show_results_on_graph(training_graph, frame_no, graphs_folder, predictions=clusters)
+        training_scores.append([card_f1_score, full_f1_score])
+
 
     with open(os.path.join(experiment_folder, 'results.txt'), 'w') as f:
         print(f'Training F1 scores: {np.mean(training_scores, axis=0)}', file=f)

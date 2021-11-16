@@ -20,20 +20,18 @@ def train_folds(best_config, dataset_path):
         experiment_folder = f'experiments_{dataset_folder}_folds'
         subprocess.run(
             f'python src/train.py -F {experiment_folder} with '
-            f'architecture={architecture} '
-            f'collapse_regularization={collapse_regularization} '
-            f'dropout_rate={dropout_rate} '
-            f'n_clusters={n_clusters} '
+            f'common.architecture={architecture} '
+            f'common.collapse_regularization={collapse_regularization} '
+            f'common.dropout_rate={dropout_rate} '
+            f'common.n_clusters={n_clusters} '
             f'n_epochs={n_epochs} '
-            f'learning_rate={learning_rate} '
-            f'frustum_length={frustum_length} '
-            f'frustum_angle={frustum_angle} '
-            f'edge_cutoff={edge_cutoff} '
-            f'features_as_pos=True '
-            f'eval_mode="normal" '
-            f'total_frames="max" '
-            f'select_frames_random=True '
-            f'dataset_path={dataset_fold_path} '
+            f'common.learning_rate={learning_rate} '
+            f'common.frustum_length={frustum_length} '
+            f'common.frustum_angle={frustum_angle} '
+            f'common.edge_cutoff={edge_cutoff} '
+            f'common.features_as_pos=True '
+            f'common.total_frames="max" '
+            f'common.dataset_path={dataset_fold_path} '
         )
 
 def get_best_config(experiment_folder):
@@ -44,7 +42,7 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_path = os.path.join('data', 'CMU_salsa')
-    best_data_path = os.path.join('experiments_salsa_ps_folds', '1')
+    dataset_path = os.path.join('data', 'salsa_cpp')
+    best_data_path = os.path.join('experiments_salsa_cpp_folds', '1')
     best_config = get_best_config(best_data_path)
     train_folds(best_config, dataset_path)
