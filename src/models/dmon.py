@@ -138,20 +138,13 @@ class DmonRiLoss(DMoN):
         features, adjacency, labels = inputs
 
         self.assert_input_valid(adjacency, features)
-        assignments, features_pooled, ri_loss = self.create_network(adjacency, features, labels)
+        assignments, features_pooled, ri_loss = self.create_network_ri(features, labels)
         self.add_loss(ri_loss)
         return features_pooled, assignments
 
-    def create_network(self, adjacency, features, labels):
+    def create_network_ri(self, features, labels):
         assignments = tf.nn.softmax(self.transform(features), axis=1)
         features_pooled = tf.Variable(initial_value=1)
-        # cluster_sizes = tf.math.reduce_sum(assignments, axis=0)  # Size [k].
-        # assignments_pooling = assignments / cluster_sizes  # Size [n, k].
-        #
-        # features_pooled = tf.matmul(assignments_pooling, features, transpose_a=True)
-        # features_pooled = tf.nn.selu(features_pooled)
-        # if self.do_unpooling:
-        #     features_pooled = tf.matmul(assignments_pooling, features_pooled)
 
         predicted_clusters = tf.math.argmax(assignments, axis=1)
         label_clusters = tf.math.argmax(labels, axis=1)

@@ -66,7 +66,6 @@ def cfg():
     features_as_pos = True
     eval_mode = 'normal'
     total_frames = 'max'
-    select_frames_random = False
     dataset_path = 'Data/CMU_salsa_full'
     seed = 42
 
@@ -83,9 +82,7 @@ def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model,
     for g in training_graphs:
         adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(g,
                                                                                       features_as_pos=features_as_pos)
-        labels = np.zeros((n_nodes, n_clusters))
-        for k, m in enumerate(nx.get_node_attributes(g, 'membership').values()):
-            labels[k - 1, m] = 1
+        labels = np.array([m for m in nx.get_node_attributes(g, 'membership').values()])
         dmon_training_inputs.append(
             {'graph': graph, 'feat': features, 'graph_norm': graph_normalized, 'labels': labels})
 
@@ -93,9 +90,7 @@ def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model,
     for g in validation_graphs:
         adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(g,
                                                                                       features_as_pos=features_as_pos)
-        labels = np.zeros((n_nodes, n_clusters))
-        for k, m in enumerate(nx.get_node_attributes(g, 'membership').values()):
-            labels[k - 1, m] = 1
+        labels = np.array([m for m in nx.get_node_attributes(g, 'membership').values()])
         dmon_validation_inputs.append(
             {'graph': graph, 'feat': features, 'graph_norm': graph_normalized, 'labels': labels})
 
@@ -105,7 +100,6 @@ def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model,
     predictions = []
     best_card_acc = 0
     best_full_acc = 0
-    validation_latent_representations = {}
     t.stop()
     for epoch in tqdm(range(n_epochs)):
         metrics_array = []
@@ -120,8 +114,10 @@ def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model,
             # TO-DO add labels to input
             if len(model.input) == 4:
                 loss_values, grads = grad(model, [features, graph_normalized, graph, labels])
-            else:
+            elif len(model.input) == 3:
                 loss_values, grads = grad(model, [features, graph_normalized, graph])
+            else:
+                loss_values, grads = grad(model, [features, graph_normalized])
 
             optimizer.apply_gradients(zip(grads, model.trainable_variables))
         t.stop()
@@ -171,8 +167,8 @@ def train_graph(_run, features_as_pos, n_epochs, n_clusters, test_graphs, model,
 
     plot_single_experiment(experiment_folder)
 
-    # model.load_weights(
-    #     checkpoint_path.format(epoch='best_full_acc', experiment_folder=experiment_folder))
+    model.load_weights(
+        checkpoint_path.format(epoch='best_full_acc', experiment_folder=experiment_folder))
     all_card_score = []
     all_full_score = []
     all_pairwise_f1_score = []
@@ -230,7 +226,7 @@ def main(_run: sacred.run.Run):
 
     all_graphs = convert_salsa_to_graphs()
 
-    model, optimizer = create_dmon_ri_loss(training_graph=all_graphs[0])
+    model, optimizer = create_dmon(training_graph=all_graphs[0])
 
     training_graphs, validation_graphs = get_training_and_validation_graphs(all_graphs)
 

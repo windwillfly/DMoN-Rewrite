@@ -108,10 +108,7 @@ def create_dmon_ri_loss(n_clusters: int,
     input_adjacency = tf.keras.layers.Input((n_nodes,), sparse=True, name='input_adjacency')
     input_labels = tf.keras.layers.Input((n_clusters,), name='input_labels', dtype='int64')
 
-    model = build_dmon_ri_loss(input_features, input_graph, input_adjacency, architecture,
-                               n_clusters,
-                               collapse_regularization,
-                               dropout_rate,
+    model = build_dmon_ri_loss(input_features, input_graph, input_adjacency,
                                input_labels=input_labels)
     optimizer = tf.keras.optimizers.Adam(learning_rate)
     model.compile(optimizer)
@@ -222,10 +219,12 @@ def generate_graph_inputs(graph: nx.Graph, features_as_pos: bool):
 
 def obtain_clusters(features, graph, graph_normalized, model, labels: Optional = None):
     # Obtain the cluster assignments.
-    if len(model.input) == 3:
+    if len(model.input) == 4:
+        _, assignments = model([features, graph_normalized, graph, labels], training=False)
+    elif len(model.input) == 3:
         _, assignments = model([features, graph_normalized, graph], training=False)
     else:
-        _, assignments = model([features, graph_normalized, graph, labels], training=False)
+        _, assignments = model([features, graph_normalized], training=False)
     assignments = assignments.numpy()
     clusters = assignments.argmax(axis=1)  # Convert soft to hard clusters.
     return clusters
