@@ -7,63 +7,64 @@ import numpy as np
 
 
 def experiment_network_hyperparameters(dataset_path):
-    architectures = [[4, 2], [4, 4], [4], [16], [32]]
+    architectures = [[4], [16], [32]]
     # architectures = [list(map(str, a)) for a in architectures]
 
-    for dropout_rate in range(4, 7):
-        for learning_rate in range(8, 13):
+    for collapse_reg in range(1, 5):
+        for dropout_rate in range(2, 6):
             for architecture in architectures:
+                cr = collapse_reg / 10
                 dr = dropout_rate / 10
-                lr = learning_rate * 0.0001
+                lr = 7 * 0.0001
                 arch = str(architecture).replace(' ', '')
+                dataset_name = os.path.basename(dataset_path)
 
-                call_string = f'python src/train.py -F Experiments/CMU_hyperparams with ' \
-                              f'architecture={arch} ' \
-                              f'collapse_regularization=0.5 ' \
-                              f'dropout_rate={dr} ' \
-                              f'n_clusters=8 ' \
-                              f'n_epochs=150 ' \
-                              f'learning_rate={lr} ' \
-                              f'frustum_length=1 ' \
-                              f'frustum_angle=1 ' \
-                              f'edge_cutoff=1 ' \
-                              f'features_as_pos=True ' \
-                              f'eval_mode="normal" ' \
-                              f'total_frames=max ' \
-                              f'select_frames_random=True ' \
-                              f'dataset_path=data/{dataset_path} '
+                call_string = f'python src/train.py -F Experiments/{dataset_name}_hyperparams with ' \
+                              f'common.architecture={arch} ' \
+                              f'common.collapse_regularization={cr} ' \
+                              f'common.dropout_rate={dr} ' \
+                              f'common.n_clusters=8 ' \
+                              f'n_epochs=200 ' \
+                              f'common.learning_rate={lr} ' \
+                              f'common.frustum_length=1 ' \
+                              f'common.frustum_angle=1 ' \
+                              f'common.edge_cutoff=1 ' \
+                              f'common.features_as_pos=True ' \
+                              f'common.total_frames=max ' \
+                              f'common.select_frames_random=True ' \
+                              f'common.dataset_path=data/{dataset_path} '
                 subprocess.run(call_string)
 
 
-def experiment_frustum(dataset_path, arch=None, drop_out=0.5, learning_rate=0.0008):
+def experiment_frustum(dataset_path, collapse_regularization=0.5, arch=None, drop_out=0.5, learning_rate=0.0008):
     if arch is None:
         arch = [4]
 
-    for frustum_length in np.arange(0.8, 1.4, 0.1):
-        for frustum_angle in range(30, 70, 10):
-            for edge_cutoff in np.arange(0.75, 1.5, 0.15):
+    for frustum_length in np.arange(0.5, 1.5, 0.25):
+        for frustum_angle in range(30, 90, 15):
+            for edge_cutoff in np.arange(0.5, 1.5, 0.25):
                 frustum_angle_rad = math.radians(frustum_angle)
+                dataset_name = os.path.basename(dataset_path)
 
                 subprocess.run(
-                    f'python src/train.py -F Experiments/CMU_frustum with  '
+                    f'python src/train.py -F Experiments/{dataset_name}_frustum with  '
                     f'common.architecture={arch} '
-                    f'common.collapse_regularization=0.5 '
+                    f'common.collapse_regularization={collapse_regularization} '
                     f'common.dropout_rate={drop_out} '
                     f'common.n_clusters=8 '
-                    f'n_epochs=250 '
+                    f'n_epochs=150 '
                     f'common.learning_rate={learning_rate} '
                     f'common.frustum_length={frustum_length} '
                     f'common.frustum_angle={frustum_angle_rad} '
                     f'common.edge_cutoff={edge_cutoff} '
                     f'common.features_as_pos=True '
-                    f'common.eval_mode="normal" '
                     f'common.total_frames=max '
                     f'common.select_frames_random=True '
                     f'common.dataset_path=data/{dataset_path} '
                 )
 
 
-def get_best_metrics(experiments_folder, return_full_f1_score=True):
+def get_best_metrics(experiments_folder):
     def read_result(result_json):
         with open(result_json, 'r') as f:
             result = json.load(f)
@@ -98,10 +99,8 @@ def get_best_metrics(experiments_folder, return_full_f1_score=True):
                     max_card_f1 = max_card
                     max_card_f1_path = experiment_run_id.path
 
-    if return_full_f1_score:
-        return max_full_f1_path
-    else:
-        return max_card_f1_path
+    return {'max_full_f1': {'score': max_full_f1, 'path': max_full_f1_path},
+            'max_card_f1': {'score': max_card_f1, 'path': max_card_f1_path}}
 
 
 def get_experiment_config(experiment_path) -> dict:
@@ -113,9 +112,18 @@ def get_experiment_config(experiment_path) -> dict:
 
 
 if __name__ == '__main__':
-    data_path = 'CMU_salsa_full'
+    data_path = ['salsa_cpp', 'salsa_ps', 'CMU_salsa_full']
+    for dataset in data_path:
+        metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
+        config = get_experiment_config(metrics['max_full_f1']['path'])
+        experiment_frustum(dataset,
+                           arch=config['common']['architecture'],
+                           drop_out=config['common']['dropout_rate'],
+                           learning_rate=config['common']['learning_rate'],
+                           collapse_regularization=config['common']['collapse_regularization']
+                           )
 
-    experiment_frustum(dataset_path=data_path)
-    # experiment_network_hyperparameters(data_path)
-    # best_full_f1_exp_path = get_best_metrics(r'Experiments\CMU_hyperparams')
-    # config = get_experiment_config(best_full_f1_exp_path)
+        metrics = get_best_metrics(fr'Experiments\{dataset}_frustum')
+        with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
+            print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
+            print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)
