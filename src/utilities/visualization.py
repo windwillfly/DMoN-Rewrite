@@ -53,7 +53,7 @@ def plot_single_experiment(experiment_name):
     plt.close(fig2)
     return acc_figure_save_path, loss_figure_save_path
 
-def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, predictions: Optional[List] = None):
+def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, predictions: Optional[List] = None, **kwargs):
     os.makedirs(save_path, exist_ok=True)
     fig, ax = plt.subplots(1, 1, figsize=(19.2, 10.8))
 
@@ -61,7 +61,7 @@ def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, predic
 
     ax.axis('equal')
 
-    draw_gt_graph(ax, graph)
+    draw_gt_graph(ax, graph, **kwargs)
     draw_predictions(graph, predictions)
 
     ax.set_axis_on()

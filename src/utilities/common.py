@@ -27,6 +27,7 @@ def cfg():
     total_frames = 'max'
     select_frames_random = False
     dataset_path = 'Data/CMU_salsa_full'
+    edges_from_gt = False
     seed = 42
 
 
@@ -57,8 +58,9 @@ def get_training_and_validation_graphs(all_graphs: List[nx.Graph],
 def convert_salsa_to_graphs(dataset_path: str,
                             edge_cutoff: float,
                             frustum_length: float,
-                            frustum_angle: float):
-    sc = SalsaConverter(root_folder=dataset_path, edges_from_gt=False)
+                            frustum_angle: float,
+                            edges_from_gt: bool):
+    sc = SalsaConverter(root_folder=dataset_path, edges_from_gt=edges_from_gt)
     return sc.convert(edge_distance_threshold=edge_cutoff, frustum_length=frustum_length,
                       frustum_angle=frustum_angle)
 

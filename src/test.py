@@ -86,7 +86,7 @@ def main(checkpoint_path, _run):
 
         graphs_folder = os.path.join(experiment_folder, 'graphs')
         os.makedirs(graphs_folder, exist_ok=True)
-        show_results_on_graph(training_graph, frame_no, graphs_folder, predictions=clusters)
+        show_results_on_graph(training_graph, frame_no, graphs_folder, predictions=clusters, draw_frustum=False)
         training_scores.append([card_f1_score, full_f1_score])
 
 

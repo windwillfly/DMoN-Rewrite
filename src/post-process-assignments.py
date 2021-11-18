@@ -1,8 +1,8 @@
 import json
 import networkx as nx
 import numpy as np
-import pandas as pd
 import os.path
+import pandas as pd
 from utilities.converters import SalsaConverter
 from utilities.metrics import grode
 
@@ -10,7 +10,19 @@ from utilities.metrics import grode
 def moving_average(arr, n):
     ret = np.cumsum(arr, axis=0, dtype=float)
     ret[n:] = ret[n:] - ret[:-n]
-    return ret[n - 1:] / n
+    ret[n - 1:] /= n
+    return ret
+
+
+# Recursively calculates exponential moving average of a given array
+# with a smoothing factor alpha
+def exponential_moving_average(arr, alpha):
+    smoothed = np.zeros(arr.shape)
+    smoothed[0] = arr[0]
+    for i in range(1, arr.shape[0]):
+        smoothed[i] = (1 - alpha) * smoothed[i - 1] + alpha * arr[i]
+
+    return smoothed
 
 
 def read_results(results_txt):
@@ -34,26 +46,40 @@ def post_process(data_path):
 
     all_fold_full_f1_scores = []
     all_fold_card_f1_scores = []
-    pd_rows_full_f1 = [['Salsa Poster Session']*2+['Window Length']*8,['Salsa Poster Session']*2 + list(range(2,10))]
-    pd_rows_card_f1 = [['Salsa Poster Session']*2+['Window Length']*8,['Salsa Poster Session']*2 + list(range(2,10))]
+    #window_ranges = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
+    window_ranges = np.arange(0.1, 0.3, 0.01)
+    #window_ranges = np.arange(0.1, 1, 0.1)
+    #window_ranges = np.arange(2, 10, 1)
+
+    pd_rows_full_f1 = [[data_path] * 2 + ['Window Length'] * len(window_ranges),
+                       [data_path] * 2 + list(window_ranges)]
+    pd_rows_card_f1 = [[data_path] * 2 + ['Window Length'] * len(window_ranges),
+                       [data_path] * 2 + list(window_ranges)]
     for fold in range(1, 6):
         folder = os.path.join(data_path, str(fold))
         previous_card, previous_full = read_results(os.path.join(folder, 'results.txt'))
         best_full = 0
         best_card = 0
         config = get_best_config(folder)
-        sc = SalsaConverter(root_folder=config['common']['dataset_path'], edges_from_gt=False)
-        all_graphs = sc.convert(edge_distance_threshold=config['common']['edge_cutoff'], frustum_length=config['common']['frustum_length'],
-                                frustum_angle=config['common']['frustum_angle'])
+        if 'common' in config:
+            config = config['common']
+        sc = SalsaConverter(root_folder=config['dataset_path'], edges_from_gt=False)
+        all_graphs = sc.convert(edge_distance_threshold=config['edge_cutoff'],
+                                frustum_length=config['frustum_length'],
+                                frustum_angle=config['frustum_angle'])
         assignments_file = os.path.join(folder, 'prediction_probs.npy')
-        assignments = np.load(assignments_file)
 
         full_f1_scores = []
         card_f1_scores = []
-        for window_len in range(2, 10):
-            new_preds = moving_average(assignments, window_len)
-            assignments[window_len - 1:] = new_preds
-            clusters = assignments.argmax(axis=-1)
+
+        #window_ranges = [2, 3, 4, 5, 6, 7, 8, 9]
+        for window_len in window_ranges:
+
+            assignments = np.load(assignments_file)
+            # new_preds = moving_average(assignments, window_len)
+            new_preds = exponential_moving_average(assignments, window_len)
+            #assignments[window_len - 1:] = new_preds
+            clusters = new_preds.argmax(axis=-1)
 
             all_card_score = []
             all_full_score = []
@@ -85,7 +111,8 @@ def post_process(data_path):
         all_fold_full_f1_scores.append(full_f1_scores)
         all_fold_card_f1_scores.append(card_f1_scores)
 
-    with pd.ExcelWriter(os.path.join(data_path, f'post_process_results.xlsx')) as writer:
+    #with pd.ExcelWriter(os.path.join(data_path, f'post_process_results.xlsx')) as writer:
+    with pd.ExcelWriter(os.path.join(data_path, f'post_process_results_ema_precise.xlsx')) as writer:
         pd.DataFrame(pd_rows_full_f1).to_excel(writer, sheet_name='Full F1 Scores')
         pd.DataFrame(pd_rows_card_f1).to_excel(writer, sheet_name='Card F1 Scores')
     for best_full, best_card in zip(best_full_index, best_card_index):
