@@ -1,7 +1,7 @@
 import math
-from typing import Tuple, List
 
 import numpy as np
+from typing import Tuple, List
 
 
 class Point:
@@ -159,13 +159,13 @@ def calc_frustum(person_features, frustum_length=1, frustum_angle=math.pi / 4):
 
     tri_left_point_x = math.cos(head_pose_left)
     tri_left_point_y = math.sin(head_pose_left)
-    tri_left_point = 1 / math.sin(frustum_angle) * frustum_length * Point(tri_left_point_x,
-                                                                          tri_left_point_y) + person_pos
+    tri_left_point = frustum_length * Point(tri_left_point_x,
+                                            tri_left_point_y) + person_pos
 
     tri_right_point_x = math.cos(head_pose_right)
     tri_right_point_y = math.sin(head_pose_right)
-    tri_right_point = 1 / math.sin(frustum_angle) * frustum_length * Point(tri_right_point_x,
-                                                                           tri_right_point_y) + person_pos
+    tri_right_point = frustum_length * Point(tri_right_point_x,
+                                             tri_right_point_y) + person_pos
 
     return Triangle(tri_left_point, person_pos, tri_right_point)
 

@@ -18,7 +18,6 @@ def test_folds(dataset_path, experiment_name):
         frustum_angle = best_config['frustum_angle']
         edge_cutoff = best_config['edge_cutoff']
         features_as_pos = best_config['features_as_pos']
-        total_frames = best_config['total_frames']
         edges_from_gt = best_config['edges_from_gt']
         dataset_fold_path = os.path.join(dataset_path + f'_fold{fold}', 'test')
         ckpt_path = os.path.join(best_data_path, 'checkpoints',
@@ -35,7 +34,6 @@ def test_folds(dataset_path, experiment_name):
             f'common.frustum_angle={frustum_angle} '
             f'common.edge_cutoff={edge_cutoff} '
             f'common.features_as_pos={features_as_pos} '
-            f'common.total_frames={total_frames} '
             f'common.dataset_path={dataset_fold_path} '
             f'checkpoint_path={ckpt_path} '
             f'common.edges_from_gt={edges_from_gt} '
@@ -50,6 +48,7 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_path = os.path.join('data', 'salsa_ps')
-    experiment_name = 'experiments_salsa_cpp_folds_best_hyperparam'
+    dataset_name = 'salsa_cpp'
+    dataset_path = os.path.join('data', dataset_name)
+    experiment_name = f'experiments_{dataset_name}_folds_new_edge_weights'
     test_folds(dataset_path, experiment_name)

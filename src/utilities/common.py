@@ -24,7 +24,6 @@ def cfg():
     frustum_angle = 1
     edge_cutoff = 1
     features_as_pos = True
-    total_frames = 'max'
     select_frames_random = False
     dataset_path = 'Data/CMU_salsa_full'
     edges_from_gt = False
@@ -33,23 +32,15 @@ def cfg():
 
 @common_ingredient.capture
 def get_training_and_validation_graphs(all_graphs: List[nx.Graph],
-                                       total_frames: Union[str, int],
                                        select_frames_random: bool):
-    if isinstance(total_frames, str) and total_frames == 'max':
-        total_frames = len(all_graphs)
-    elif not isinstance(total_frames, int):
-        raise TypeError('total_frames must be integer or string \'max\'.')
+    """Splits the list of graphs into training and validation graphs."""
+    if select_frames_random:
+        # Randomly select training and validation graphs.
+        random.shuffle(all_graphs)
 
-    if total_frames == len(all_graphs):
-        training_graphs = all_graphs.copy()
-        validation_graphs = all_graphs.copy()
-    elif select_frames_random == True:
-        random_indexes = random.sample(range(len(all_graphs)), total_frames)
-        training_graphs = [all_graphs[ind] for ind in random_indexes]
-        validation_graphs = [graph for graph_no, graph in enumerate(all_graphs) if graph_no not in random_indexes]
-    else:
-        training_graphs = all_graphs[:total_frames]
-        validation_graphs = all_graphs[total_frames:]
+    training_split = int(len(all_graphs) * 0.85)
+    training_graphs = all_graphs[:training_split]
+    validation_graphs = all_graphs[training_split:]
 
     return training_graphs, validation_graphs
 

@@ -1,11 +1,9 @@
-import csv
-import json
 import math
-import os
 from itertools import combinations
 
+import csv
 import networkx as nx
-
+import os
 from utilities.math_utils import calc_distance, calc_frustum, sutherland_hodgman_on_triangles, Polygon
 
 
@@ -31,6 +29,7 @@ class SalsaConverter(BaseConverter):
         self.fformation_csv = os.path.join(self.salsa_root, 'fformationGT.csv')
         self.geometry_root = os.path.join(self.salsa_root, 'geometryGT')
         self.unit_scale = 1
+        self.max_dist = 6
         if 'CMU' in self.salsa_root:
             self.unit_scale = 100
 
@@ -39,7 +38,10 @@ class SalsaConverter(BaseConverter):
         timestamps = []
         for csv_line in self._read_csv(fformation_csv):
             timestamp = float(csv_line[0])
-            group = [int(person.strip()) for person in csv_line[1:] if person != '']
+            if 'CMU' in self.salsa_root:
+                group = [int(person.strip()) + 1 for person in csv_line[1:] if person != '']
+            else:
+                group = [int(person.strip()) for person in csv_line[1:] if person != '']
             if timestamp not in fformation:
                 timestamps.append(timestamp)
                 fformation[timestamp] = [group]
@@ -55,6 +57,8 @@ class SalsaConverter(BaseConverter):
         timestamps = []
         for geo_file in os.listdir(geometry_root):
             person_no = int(os.path.splitext(os.path.basename(geo_file))[0])
+            if 'CMU' in self.salsa_root:
+                person_no += 1
             person_geometry = {}
             for csv_line in self._read_csv(os.path.join(geometry_root, geo_file)):
                 timestamp, pos_x, pos_y, _, body_pose, rel_head_pose, valid = list(map(float, csv_line))
@@ -72,7 +76,8 @@ class SalsaConverter(BaseConverter):
 
         return geometry, timestamps
 
-    def convert(self, edge_distance_threshold=1, frustum_length=1, frustum_angle=math.pi / 4, ):
+    def convert(self, edge_distance_threshold=0.4, frustum_length: float = 1.0, frustum_angle=math.pi / 3, ):
+        frustum_max_area = frustum_length * math.tan(frustum_angle)
         fformation, ff_timestamps = self._parse_fformation(self.fformation_csv)
         geometry, geo_timestamps = self._parse_geometry(self.geometry_root)
 
@@ -147,12 +152,15 @@ class SalsaConverter(BaseConverter):
                         dist = calc_distance(person_loc, other_person_loc)
                         edge_nodes.append((person_no, other_person_no))
 
-                        f1 = calc_frustum(person_feat)
-                        f2 = calc_frustum(other_person_feat)
+                        f1 = calc_frustum(person_feat, frustum_length=frustum_length, frustum_angle=frustum_angle)
+                        f2 = calc_frustum(other_person_feat, frustum_length=frustum_length, frustum_angle=frustum_angle)
 
                         intersection_poly = Polygon(sutherland_hodgman_on_triangles(f1, f2))
-                        weight = max(0, 4 - dist)
-                        weight *= intersection_poly.area()
+                        # weight = max(0, 4 - dist)
+                        weight = math.exp(-dist / (2 * (self.max_dist ** 2)))
+                        frustum_multiplier = intersection_poly.area() / (frustum_max_area / 4)
+                        weight *= frustum_multiplier
+                        # print(frustum_multiplier)
 
                         edge_weights.append(weight)
 
@@ -162,7 +170,7 @@ class SalsaConverter(BaseConverter):
 
                     # Weed out edges above a certain threshold
                     if weight > edge_distance_threshold:
-                        edge_list.append((p1, p2, {'weight': 1}))
+                        edge_list.append((p1, p2, {'weight': weight}))
 
             group_numbers = list({node[1]['membership'] + 1 for node in node_list})
             total_groups = len(group_numbers)
@@ -182,25 +190,31 @@ class SalsaConverter(BaseConverter):
 
 if __name__ == '__main__':
     from utilities.visualization import show_gt_graph
-    sc = SalsaConverter(root_folder=os.path.join('data', 'CMU_salsa_fold1', 'test'), edges_from_gt=True)
-    graphs = sc.convert()
 
-    graph_num = 94
+    frustum_angle = math.pi / 4
+    frustum_length = 1
+    edge_distance_threshold = 0.4
+    sc = SalsaConverter(root_folder=os.path.join('data', 'salsa_ps_fold1', 'train'), edges_from_gt=False)
+    graphs = sc.convert(frustum_angle=frustum_angle, frustum_length=frustum_length,
+                        edge_distance_threshold=edge_distance_threshold)
+
+    graph_num = 128
     current_graph = graphs[graph_num]
 
-    show_gt_graph(current_graph, '94')
+    show_gt_graph(current_graph, title="Salsa Poster Session", draw_frustum=True, frustum_angle=frustum_angle,
+                  frustum_length=frustum_length)
 
-    with open(r'test_experiments\10\latent_graphs.json') as f:
-        latent_positions = json.load(f)
-
-    epoch_positions = []
-    for epoch_num, latent_pos_of_graphs in latent_positions.items():
-        epoch_positions.append(latent_pos_of_graphs[graph_num])
-
-    for i in range(0, len(latent_positions), 50):
-        cur_graph = current_graph.copy()
-        current_positions = epoch_positions[i]
-        node_features = {node_num: {'feats': [current_positions[node_num][0], current_positions[node_num][1], 0, 0]} for
-                         node_num in range(cur_graph.number_of_nodes())}
-        nx.set_node_attributes(cur_graph, {'feats': []})
-        show_gt_graph(cur_graph, f'94_epoch_{i}', draw_frustum=False)
+    # with open(r'test_experiments\10\latent_graphs.json') as f:
+    #     latent_positions = json.load(f)
+    #
+    # epoch_positions = []
+    # for epoch_num, latent_pos_of_graphs in latent_positions.items():
+    #     epoch_positions.append(latent_pos_of_graphs[graph_num])
+    #
+    # for i in range(0, len(latent_positions), 50):
+    #     cur_graph = current_graph.copy()
+    #     current_positions = epoch_positions[i]
+    #     node_features = {node_num: {'feats': [current_positions[node_num][0], current_positions[node_num][1], 0, 0]} for
+    #                      node_num in range(cur_graph.number_of_nodes())}
+    #     nx.set_node_attributes(cur_graph, {'feats': []})
+    #     show_gt_graph(cur_graph, f'94_epoch_{i}', draw_frustum=False)

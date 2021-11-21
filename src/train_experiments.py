@@ -1,13 +1,13 @@
-import json
 import math
+
+import json
+import numpy as np
 import os
 import subprocess
 
-import numpy as np
-
 
 def experiment_network_hyperparameters(dataset_path):
-    architectures = [[4], [16], [32]]
+    architectures = [[4, 4, 2], [4], [16], [32]]
     # architectures = [list(map(str, a)) for a in architectures]
 
     for collapse_reg in range(1, 5):
@@ -23,7 +23,7 @@ def experiment_network_hyperparameters(dataset_path):
                               f'common.architecture={arch} ' \
                               f'common.collapse_regularization={cr} ' \
                               f'common.dropout_rate={dr} ' \
-                              f'common.n_clusters=8 ' \
+                              f'common.n_clusters=6 ' \
                               f'n_epochs=200 ' \
                               f'common.learning_rate={lr} ' \
                               f'common.frustum_length=1 ' \
@@ -46,22 +46,21 @@ def experiment_frustum(dataset_path, collapse_regularization=0.5, arch=None, dro
                 frustum_angle_rad = math.radians(frustum_angle)
                 dataset_name = os.path.basename(dataset_path)
 
-                subprocess.run(
-                    f'python src/train.py -F Experiments/{dataset_name}_frustum with  '
-                    f'common.architecture={arch} '
-                    f'common.collapse_regularization={collapse_regularization} '
-                    f'common.dropout_rate={drop_out} '
-                    f'common.n_clusters=8 '
-                    f'n_epochs=150 '
-                    f'common.learning_rate={learning_rate} '
-                    f'common.frustum_length={frustum_length} '
-                    f'common.frustum_angle={frustum_angle_rad} '
-                    f'common.edge_cutoff={edge_cutoff} '
-                    f'common.features_as_pos=True '
-                    f'common.total_frames=max '
-                    f'common.select_frames_random=True '
-                    f'common.dataset_path=data/{dataset_path} '
-                )
+                call_string = f'python src/train.py -F Experiments/{dataset_name}_frustum with  ' \
+                    f'"common.architecture={arch}" ' \
+                    f'"common.collapse_regularization={collapse_regularization}" ' \
+                    f'"common.dropout_rate={drop_out}" ' \
+                    f'"common.n_clusters=8" ' \
+                    f'"n_epochs=150" ' \
+                    f'"common.learning_rate={learning_rate}" ' \
+                    f'"common.frustum_length={frustum_length}" ' \
+                    f'"common.frustum_angle={frustum_angle_rad}" ' \
+                    f'"common.edge_cutoff={edge_cutoff}" ' \
+                    f'"common.features_as_pos=True" ' \
+                    f'"common.total_frames=max" ' \
+                    f'"common.select_frames_random=True" ' \
+                    f'"common.dataset_path=data/{dataset_path}" '
+                subprocess.run(call_string)
 
 
 def get_best_metrics(experiments_folder):
@@ -70,8 +69,6 @@ def get_best_metrics(experiments_folder):
             result = json.load(f)
         card_f1 = result['T=2/3 F1 Score']['values']
         full_f1 = result['T=1 F1 Score']['values']
-        # card_f1 = list(result['card_f1'].values())
-        # full_f1 = list(result['full_f1'].values())
         return card_f1, full_f1
 
     max_full_f1 = 0
@@ -112,18 +109,20 @@ def get_experiment_config(experiment_path) -> dict:
 
 
 if __name__ == '__main__':
-    data_path = ['salsa_cpp', 'salsa_ps', 'CMU_salsa_full']
-    for dataset in data_path:
-        metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
-        config = get_experiment_config(metrics['max_full_f1']['path'])
-        experiment_frustum(dataset,
-                           arch=config['common']['architecture'],
-                           drop_out=config['common']['dropout_rate'],
-                           learning_rate=config['common']['learning_rate'],
-                           collapse_regularization=config['common']['collapse_regularization']
-                           )
+    dataset = 'salsa_cpp'
+    #experiment_network_hyperparameters(dataset)
+    # data_path = ['salsa_cpp', 'salsa_ps', 'CMU_salsa_full']
+    # for dataset in data_path:
+    metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
+    config = get_experiment_config(metrics['max_full_f1']['path'])
+    experiment_frustum(dataset,
+                       arch=config['common']['architecture'],
+                       drop_out=config['common']['dropout_rate'],
+                       learning_rate=config['common']['learning_rate'],
+                       collapse_regularization=config['common']['collapse_regularization']
+                       )
 
-        metrics = get_best_metrics(fr'Experiments\{dataset}_frustum')
-        with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
-            print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
-            print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)
+    metrics = get_best_metrics(fr'Experiments\{dataset}_frustum')
+    with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
+        print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
+        print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)

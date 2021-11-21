@@ -158,6 +158,8 @@ def train_graph(_run, n_epochs, test_graphs, model, optimizer,
     all_card_score = []
     all_full_score = []
     all_pairwise_f1_score = []
+    frustum_length = _run.config['common']['frustum_length']
+    frustum_angle = _run.config['common']['frustum_angle']
     for frame_no, training_graph in enumerate(test_graphs):
         labels = np.array([(m) for m in nx.get_node_attributes(training_graph, 'membership').values()])
         label_indices = np.arange(labels.shape[0])
@@ -180,17 +182,25 @@ def train_graph(_run, n_epochs, test_graphs, model, optimizer,
         if training_graph in training_graphs:
             if full_f1_score < 0.25:
                 show_results_on_graph(training_graph, predictions=clusters, frame_no=str(frame_no),
-                                      save_path=os.path.join(experiment_folder, 'valid_very_very_bad'))
+                                      save_path=os.path.join(experiment_folder, 'valid_very_very_bad'),
+                                      frustum_length=frustum_length,
+                                      frustum_angle=frustum_angle)
             if 0.25 <= full_f1_score < 0.5:
                 show_results_on_graph(training_graph, predictions=clusters, frame_no=str(frame_no),
-                                      save_path=os.path.join(experiment_folder, 'valid_very_bad'))
+                                      save_path=os.path.join(experiment_folder, 'valid_very_bad'),
+                                      frustum_length=frustum_length,
+                                      frustum_angle=frustum_angle)
             if 0.5 <= full_f1_score < 0.75:
                 show_results_on_graph(training_graph, predictions=clusters, frame_no=str(frame_no),
-                                      save_path=os.path.join(experiment_folder, 'valid_bad'))
+                                      save_path=os.path.join(experiment_folder, 'valid_bad'),
+                                      frustum_length=frustum_length,
+                                      frustum_angle=frustum_angle)
         else:
             if full_f1_score < 1:
                 show_results_on_graph(training_graph, predictions=clusters, frame_no=str(frame_no),
-                                      save_path=os.path.join(experiment_folder, 'train_bad'))
+                                      save_path=os.path.join(experiment_folder, 'train_bad'),
+                                      frustum_length=frustum_length,
+                                      frustum_angle=frustum_angle)
     print('Overall Accuracies')
     print(f'Pairwise F1: {np.mean(all_pairwise_f1_score)}')
     print(f'Card F1 (T=2/3): {np.mean(all_card_score)}')

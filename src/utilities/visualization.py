@@ -1,13 +1,12 @@
 import math
+
+import json
+import matplotlib.colors as colors
+import matplotlib.pyplot as plt
+import networkx as nx
 import operator
 import os
-import json
 from typing import List, Optional
-
-import matplotlib.pyplot as plt
-import matplotlib.colors as colors
-import networkx as nx
-
 from utilities.math_utils import calc_frustum, Point
 
 
@@ -27,7 +26,6 @@ def read_metrics(metrics_json):
 
 
 def plot_single_experiment(experiment_name):
-
     card_f1, card_f1_steps, full_f1, full_f1_steps, spectral_loss, spectral_loss_steps, collapse_loss, collapse_loss_steps = read_metrics(
         os.path.join(experiment_name, f'metrics.json'))
 
@@ -52,6 +50,7 @@ def plot_single_experiment(experiment_name):
     plt.savefig(loss_figure_save_path)
     plt.close(fig2)
     return acc_figure_save_path, loss_figure_save_path
+
 
 def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, predictions: Optional[List] = None, **kwargs):
     os.makedirs(save_path, exist_ok=True)
@@ -94,13 +93,15 @@ def draw_predictions(graph: nx.Graph, predictions: Optional[List] = None):
     distinct_marker_shapes = ['v', '^', '<', '>', 's', 'P', '*', 'X', 'D', 'H', '+', 'x', '1', '2', '3', '4']
     predicted_node_colors = [distinct_colors[i] for i in predictions]
     predicted_node_shapes = [distinct_marker_shapes[i] for i in predictions]
-    for color, shape, feature in zip(predicted_node_colors, predicted_node_shapes, nx.get_node_attributes(graph, 'feats').values()):
+    for color, shape, feature in zip(predicted_node_colors, predicted_node_shapes,
+                                     nx.get_node_attributes(graph, 'feats').values()):
         pos = feature[:2]
         new_pos = list(map(operator.add, pos, [0.05, 0.25]))
         plt.scatter(*new_pos, 200, marker=shape, color=color, edgecolors='black', linewidths=1, alpha=0.7)
 
 
-def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Frame 0", draw_frustum=True):
+def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Frame 0", draw_frustum=True,
+                  frustum_length=1, frustum_angle=math.pi / 3):
     ax.set_title(title)
 
     node_pos = {node_n: feat[:2] for feat, node_n in
@@ -111,24 +112,28 @@ def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Fram
     nx.draw(
         graph,
         node_color=list(nx.get_node_attributes(graph, 'color').values()),
+        # node_color='dimgray',
         pos=node_pos,
         linewidths=linewidths,
-        width=.3, ax=ax, node_size=200, edgecolors=node_edgecolors)
+        width=.3, ax=ax, node_size=500, edgecolors=node_edgecolors)
+    nx.draw_networkx_edge_labels(graph, pos=node_pos, edge_labels={k: f'{v:.3f}' for k, v in
+                                                                   nx.get_edge_attributes(graph, 'weight').items()},
+                                 ax=ax)
 
     if draw_frustum:
         # Draw view frustum
         for feat, color in zip(nx.get_node_attributes(graph, 'feats').values(),
                                nx.get_node_attributes(graph, 'color').values()):
-            frustum = calc_frustum(feat)
-            facecolor = (*colors.to_rgba(color)[:3], 0.1)
-            edgecolor = (*colors.to_rgba('black')[:3], 0.5)
+            frustum = calc_frustum(feat, frustum_length, frustum_angle)
+            facecolor = (*colors.to_rgba(color)[:3], 0.03)
+            edgecolor = (*colors.to_rgba('black')[:3], 0.2)
             t1 = plt.Polygon(frustum, edgecolor=edgecolor, facecolor=facecolor, linewidth=0.75)
             plt.gca().add_patch(t1)
 
     for person_feat, person_no in zip(nx.get_node_attributes(graph, 'feats').values(),
                                       nx.get_node_attributes(graph, 'person_no').values()):
         text_pos = Point(*person_feat[:2]) + Point(0.15, 0.15)
-        #ax.text(*text_pos, person_no)
+        # ax.text(*text_pos, person_no)
 
 
 def toy_frustum_example() -> nx.Graph:
@@ -171,11 +176,11 @@ def toy_frustum_example() -> nx.Graph:
                   {'membership': 4, 'color': '#01579b', 'feats': [13, 12, - (math.pi + 3 * math.pi / 4), 0],
                    'person_no': 9, 'ts': 0}))
 
-    #edges.append((0, 1))
-    #edges.append((2, 3))
-    #edges.append((4, 5))
-    #edges.append((6, 7))
-    #edges.append((8, 9))
+    # edges.append((0, 1))
+    # edges.append((2, 3))
+    # edges.append((4, 5))
+    # edges.append((6, 7))
+    # edges.append((8, 9))
 
     g.add_nodes_from(nodes)
     g.add_edges_from(edges)
