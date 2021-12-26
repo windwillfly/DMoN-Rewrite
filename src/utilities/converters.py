@@ -90,7 +90,7 @@ class SalsaConverter(BaseConverter):
             node_list = []
             edge_list = []
 
-            colors = ['#27c7bd', '#01579b', '#fb8c00', '#e77865', '#cbeaad', '#6180c3', '#69de4b', '#c72792', '#6d2827',
+            colors = ['#38761d', '#01579b', '#fb8c00', '#e77865', '#cbeaad', '#6180c3', '#69de4b', '#c72792', '#6d2827',
                       '#1e2157', '#58C0CF', '#167C54', '#B76E09', '#265A98', '#AE45ED', '#98900B', '#85D54B']
 
             edge_nodes = []
@@ -156,11 +156,9 @@ class SalsaConverter(BaseConverter):
                         f2 = calc_frustum(other_person_feat, frustum_length=frustum_length, frustum_angle=frustum_angle)
 
                         intersection_poly = Polygon(sutherland_hodgman_on_triangles(f1, f2))
-                        # weight = max(0, 4 - dist)
                         weight = math.exp(-dist / (2 * (self.max_dist ** 2)))
                         frustum_multiplier = intersection_poly.area() / (frustum_max_area / 4)
                         weight *= frustum_multiplier
-                        # print(frustum_multiplier)
 
                         edge_weights.append(weight)
 
@@ -189,11 +187,11 @@ class SalsaConverter(BaseConverter):
 
 
 if __name__ == '__main__':
-    from utilities.visualization import show_gt_graph
+    from utilities.visualization import show_gt_graph, show_results_on_graph
 
     frustum_angle = math.pi / 4
     frustum_length = 1
-    edge_distance_threshold = 0.4
+    edge_distance_threshold = 0.15
     sc = SalsaConverter(root_folder=os.path.join('data', 'salsa_ps_fold1', 'train'), edges_from_gt=False)
     graphs = sc.convert(frustum_angle=frustum_angle, frustum_length=frustum_length,
                         edge_distance_threshold=edge_distance_threshold)
@@ -201,8 +199,12 @@ if __name__ == '__main__':
     graph_num = 128
     current_graph = graphs[graph_num]
 
-    show_gt_graph(current_graph, title="Salsa Poster Session", draw_frustum=True, frustum_angle=frustum_angle,
-                  frustum_length=frustum_length)
+    # current_graph.remove_nodes_from([node[0] for node in current_graph.nodes(data=True) if node[1]['membership'] != 4])
+    show_results_on_graph(current_graph, frame_no=str(graph_num), save_path='.', title="Salsa Poster Session",
+                          draw_frustum=True, frustum_angle=frustum_angle,
+                          frustum_length=frustum_length)
+    #show_gt_graph(current_graph, title="Salsa Poster Session", draw_frustum=True, frustum_angle=frustum_angle,
+    #              frustum_length=frustum_length)
 
     # with open(r'test_experiments\10\latent_graphs.json') as f:
     #     latent_positions = json.load(f)

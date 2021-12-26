@@ -91,6 +91,8 @@ def draw_predictions(graph: nx.Graph, predictions: Optional[List] = None):
                        '#bcf60c', '#fabebe', '#008080', '#e6beff', '#9a6324', '#fffac8', '#800000', '#aaffc3',
                        '#808000', '#ffd8b1', '#000075', '#808080', '#ffffff', '#000000']
     distinct_marker_shapes = ['v', '^', '<', '>', 's', 'P', '*', 'X', 'D', 'H', '+', 'x', '1', '2', '3', '4']
+    if predictions is None:
+        return
     predicted_node_colors = [distinct_colors[i] for i in predictions]
     predicted_node_shapes = [distinct_marker_shapes[i] for i in predictions]
     for color, shape, feature in zip(predicted_node_colors, predicted_node_shapes,
@@ -109,14 +111,18 @@ def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Fram
                     nx.get_node_attributes(graph, 'person_no'))}
     node_edgecolors = ['black'] * graph.number_of_nodes()
     linewidths = [1 if c == 'black' else 5 for c in node_edgecolors]
+    #edgewidths = [weight for edge_no, weight in nx.get_edge_attributes(graph, 'weight').items()]
+    edgewidths = 1
+    #edgestyle = ['--' if edgeweight < 0.6 else '-' for edgeweight in nx.get_edge_attributes(graph, 'weight').values()]
+    edgestyle = '-'
     nx.draw(
         graph,
         node_color=list(nx.get_node_attributes(graph, 'color').values()),
         # node_color='dimgray',
         pos=node_pos,
         linewidths=linewidths,
-        width=.3, ax=ax, node_size=500, edgecolors=node_edgecolors)
-    nx.draw_networkx_edge_labels(graph, pos=node_pos, edge_labels={k: f'{v:.3f}' for k, v in
+        width=edgewidths, ax=ax, node_size=700, edgecolors=node_edgecolors, style=edgestyle)
+    nx.draw_networkx_edge_labels(graph, pos=node_pos, edge_labels={k: f'{v:.1f}' for k, v in
                                                                    nx.get_edge_attributes(graph, 'weight').items()},
                                  ax=ax)
 
@@ -125,9 +131,9 @@ def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Fram
         for feat, color in zip(nx.get_node_attributes(graph, 'feats').values(),
                                nx.get_node_attributes(graph, 'color').values()):
             frustum = calc_frustum(feat, frustum_length, frustum_angle)
-            facecolor = (*colors.to_rgba(color)[:3], 0.03)
-            edgecolor = (*colors.to_rgba('black')[:3], 0.2)
-            t1 = plt.Polygon(frustum, edgecolor=edgecolor, facecolor=facecolor, linewidth=0.75)
+            facecolor = (*colors.to_rgba('yellow')[:3], 0.05)
+            edgecolor = (*colors.to_rgba('gray')[:3], 1)
+            t1 = plt.Polygon(frustum, edgecolor=edgecolor, facecolor=facecolor, linewidth=0.5)
             plt.gca().add_patch(t1)
 
     for person_feat, person_no in zip(nx.get_node_attributes(graph, 'feats').values(),
@@ -156,24 +162,24 @@ def toy_frustum_example() -> nx.Graph:
                    'person_no': 3, 'ts': 0}))
 
     nodes.append((4,
-                  {'membership': 2, 'color': '#01579b', 'feats': [6, 6, math.pi / 2, 0],
+                  {'membership': 2, 'color': '#fb8c00', 'feats': [6, 6, math.pi / 2, 0],
                    'person_no': 4, 'ts': 0}))
     nodes.append((5,
-                  {'membership': 2, 'color': '#01579b', 'feats': [7, 6, math.pi + math.pi / 2, 0],
+                  {'membership': 2, 'color': '#fb8c00', 'feats': [7, 6, math.pi + math.pi / 2, 0],
                    'person_no': 5, 'ts': 0}))
 
     nodes.append((6,
-                  {'membership': 3, 'color': '#01579b', 'feats': [9, 9, - math.pi / 3, 0],
+                  {'membership': 3, 'color': '#e77865', 'feats': [9, 9, - math.pi / 3, 0],
                    'person_no': 6, 'ts': 0}))
     nodes.append((7,
-                  {'membership': 3, 'color': '#01579b', 'feats': [10, 9, - (math.pi + math.pi / 3), 0],
+                  {'membership': 3, 'color': '#e77865', 'feats': [10, 9, - (math.pi + math.pi / 3), 0],
                    'person_no': 7, 'ts': 0}))
 
     nodes.append((8,
-                  {'membership': 4, 'color': '#01579b', 'feats': [12, 12, - 3 * math.pi / 4, 0],
+                  {'membership': 4, 'color': '#cbeaad', 'feats': [12, 12, - 3 * math.pi / 4, 0],
                    'person_no': 8, 'ts': 0}))
     nodes.append((9,
-                  {'membership': 4, 'color': '#01579b', 'feats': [13, 12, - (math.pi + 3 * math.pi / 4), 0],
+                  {'membership': 4, 'color': '#cbeaad', 'feats': [13, 12, - (math.pi + 3 * math.pi / 4), 0],
                    'person_no': 9, 'ts': 0}))
 
     # edges.append((0, 1))
