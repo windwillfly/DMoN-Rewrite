@@ -45,6 +45,7 @@ def test_folds(dataset_path, experiment_name):
             f'common.dataset_path={dataset_fold_path} '
             f'checkpoint_path={ckpt_path} '
             f'common.edges_from_gt={edges_from_gt} '
+            f'common.use_body_orientation=True '
             f'-d'
         )
 

@@ -27,6 +27,7 @@ def cfg():
     select_frames_random = False
     dataset_path = 'Data/CMU_salsa_full'
     edges_from_gt = False
+    use_body_orientation = True
     seed = 42
 
 

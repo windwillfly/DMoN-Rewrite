@@ -43,6 +43,7 @@ def train_folds(best_config, dataset_path):
             f'common.dataset_path={dataset_fold_path} '
             f'common.edges_from_gt={edges_from_gt} '  # Graph edges initialized from ground truth
             f'common.select_frames_random=True '
+            f'common.use_body_orientation=True '
             f'-d'
         )
 
@@ -54,7 +55,7 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_name = 'salsa_cpp'
+    dataset_name = 'salsa_ps'
     dataset_path = os.path.join('data', dataset_name)
     best_metrics = get_best_metrics(os.path.join('Experiments', f'{dataset_name}_frustum'))
     best_experiment_path = best_metrics['max_full_f1']['path']
