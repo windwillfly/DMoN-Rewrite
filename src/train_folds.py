@@ -6,8 +6,9 @@ import subprocess
 from find_best_experiment import get_best_metrics
 
 
-def train_folds(best_config, dataset_path):
+def train_folds(best_config, dataset_path, best_experiment_path):
     dataset_folder = os.path.basename(dataset_path)
+    experiment_name = '_'.join(best_experiment_path.split(os.path.sep)[1:])
     if 'common' in best_config:
         best_config = best_config['common']
     architecture = best_config['architecture']
@@ -27,7 +28,7 @@ def train_folds(best_config, dataset_path):
     for fold in range(1, 6):
         dataset_fold_path = os.path.join(dataset_path + f'_fold{fold}', 'train')
 
-        experiment_folder = os.path.join(f'Experiments_tests', f'{dataset_folder}_folds')
+        experiment_folder = os.path.join(f'Experiments_tests', f'{experiment_name}_folds')
         subprocess.run(
             f'python src/train.py -F {experiment_folder} with '
             f'common.architecture="{architecture}" '
@@ -55,9 +56,10 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_name = 'salsa_ps'
+    dataset_name = 'salsa_cpp'
     dataset_path = os.path.join('data', dataset_name)
-    best_metrics = get_best_metrics(os.path.join('Experiments', f'{dataset_name}_frustum'))
-    best_experiment_path = best_metrics['max_full_f1']['path']
+    #best_metrics = get_best_metrics(os.path.join('Experiments', f'salsa_ps_frustum'))
+    #best_experiment_path = best_metrics['max_full_f1']['path']
+    best_experiment_path = os.path.join('Experiments', f'salsa_cpp_edge_prune', '0.2')
     best_config = get_best_config(best_experiment_path)
-    train_folds(best_config, dataset_path)
+    train_folds(best_config, dataset_path, best_experiment_path)

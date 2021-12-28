@@ -58,7 +58,7 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_name = 'salsa_combined'
+    dataset_name = 'salsa_ps'
     dataset_path = os.path.join('data', dataset_name)
-    experiment_name = os.path.join(f'Experiments_tests', f'{dataset_name}_folds')
+    experiment_name = os.path.join(f'Experiments_tests', f'{dataset_name}_edge_prune_0_folds')
     test_folds(dataset_path, experiment_name)

@@ -7,15 +7,15 @@ import subprocess
 
 
 def experiment_network_hyperparameters(dataset_path):
-    architectures = [[4, 4, 2], [4], [16], [32]]
+    architectures = [[4], [16], [32]]
     # architectures = [list(map(str, a)) for a in architectures]
 
     for collapse_reg in range(1, 5):
-        for dropout_rate in range(2, 6):
+        for dropout_rate in range(1, 5):
             for architecture in architectures:
                 cr = collapse_reg / 10
                 dr = dropout_rate / 10
-                lr = 7 * 0.0001
+                lr = 0.001
                 arch = str(architecture).replace(' ', '')
                 dataset_name = os.path.basename(dataset_path)
 
@@ -23,12 +23,12 @@ def experiment_network_hyperparameters(dataset_path):
                               f'common.architecture={arch} ' \
                               f'common.collapse_regularization={cr} ' \
                               f'common.dropout_rate={dr} ' \
-                              f'common.n_clusters=6 ' \
-                              f'n_epochs=200 ' \
+                              f'common.n_clusters=16 ' \
+                              f'n_epochs=75 ' \
                               f'common.learning_rate={lr} ' \
-                              f'common.frustum_length=1 ' \
-                              f'common.frustum_angle=1 ' \
-                              f'common.edge_cutoff=1 ' \
+                              f'common.frustum_length=1.25 ' \
+                              f'common.frustum_angle=0.7853981633974483 ' \
+                              f'common.edge_cutoff=0 ' \
                               f'common.features_as_pos=True ' \
                               f'common.total_frames=max ' \
                               f'common.select_frames_random=True ' \
@@ -108,11 +108,8 @@ def get_experiment_config(experiment_path) -> dict:
 
 
 if __name__ == '__main__':
-    dataset = 'cocktail_party'
-    arch = [32]
-    collapse_regularization = 0.1
-    drop_out = 0.5
-    experiment_frustum(dataset, collapse_regularization=collapse_regularization, drop_out=drop_out, arch=arch)
+    dataset = 'salsa_combined'
+    experiment_network_hyperparameters(dataset)
     metrics = get_best_metrics(fr'Experiments\{dataset}_frustum')
     with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
         print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)

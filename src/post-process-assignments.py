@@ -1,8 +1,10 @@
 import json
+import os.path
+
 import networkx as nx
 import numpy as np
-import os.path
 import pandas as pd
+
 from utilities.converters import SalsaConverter
 from utilities.metrics import grode
 
@@ -43,8 +45,13 @@ def get_best_config(experiment_folder):
 def post_process(data_path):
     window_ranges_ma = np.arange(2, 10, 1)
     window_ranges_ema = np.arange(0.1, 1, .1)
-    main_loop(data_path, window_ranges_ma, 'post_process_results_ma.xlsx', moving_average)
-    main_loop(data_path, window_ranges_ema, 'post_process_results_ema.xlsx', exponential_moving_average)
+    mafull, macard = main_loop(data_path, window_ranges_ma, 'post_process_results_ma.xlsx', moving_average)
+    emafull, emacard = main_loop(data_path, window_ranges_ema, 'post_process_results_ema.xlsx',
+                                 exponential_moving_average)
+
+    with pd.ExcelWriter(os.path.join(data_path, 'post_process_results.xlsx')) as writer:
+        pd.concat([pd.DataFrame(mafull), pd.DataFrame(macard), pd.DataFrame(emafull), pd.DataFrame(emacard)]).to_excel(
+            writer, sheet_name='Scores')
 
 
 def main_loop(data_path, window_ranges, excel_filename, average_function):
@@ -131,11 +138,9 @@ def main_loop(data_path, window_ranges, excel_filename, average_function):
     pd_rows_card_f1.append([card_window] + all_fold_card_f1_scores[:, best_card_index].tolist() + [
         np.mean(fold_averages_card[best_card_index])])
 
-    with pd.ExcelWriter(os.path.join(data_path, excel_filename)) as writer:
-        pd.DataFrame(pd_rows_full_f1).to_excel(writer, sheet_name='Full F1 Scores')
-        pd.DataFrame(pd_rows_card_f1).to_excel(writer, sheet_name='Card F1 Scores')
+    return pd_rows_full_f1, pd_rows_card_f1
 
 
 if __name__ == '__main__':
-    data_path = os.path.join('Experiments_tests','salsa_combined_folds_test')
+    data_path = os.path.join('Experiments_tests', 'salsa_combined_folds_test')
     post_process(data_path)
