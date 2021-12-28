@@ -150,9 +150,12 @@ def sutherland_hodgman_on_triangles(first_triangle: Triangle, second_triangle: T
     return outputList
 
 
-def calc_frustum(person_features, frustum_length=1, frustum_angle=math.pi / 4):
+def calc_frustum(person_features, use_body=True, frustum_length=1, frustum_angle=math.pi / 4):
     person_pos = Point(*person_features[:2])
-    head_pose = person_features[2] + person_features[3]
+    if use_body:
+        head_pose = person_features[2]
+    else:
+        head_pose = person_features[2] + person_features[3]
 
     head_pose_left = head_pose + frustum_angle
     head_pose_right = head_pose - frustum_angle

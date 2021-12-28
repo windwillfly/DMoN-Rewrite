@@ -6,9 +6,13 @@ import os
 def get_best_metrics(experiments_folder):
     def read_result(result_json):
         with open(result_json, 'r') as f:
-            result = json.load(f)
+            try:
+                result = json.load(f)
+            except json.decoder.JSONDecodeError:
+                return 0, 0
         card_f1 = result['T=2/3 F1 Score']['values']
         full_f1 = result['T=1 F1 Score']['values']
+
         return card_f1, full_f1
 
     max_full_f1 = 0
@@ -36,6 +40,7 @@ def get_best_metrics(experiments_folder):
                     max_card_f1 = max_card
                     max_card_f1_path = experiment_run_id.path
 
+    print('Best full F1:', max_full_f1, 'in', max_full_f1_path)
     return {'max_full_f1': {'score': max_full_f1, 'path': max_full_f1_path},
             'max_card_f1': {'score': max_card_f1, 'path': max_card_f1_path}}
 

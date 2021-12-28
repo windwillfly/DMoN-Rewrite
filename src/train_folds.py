@@ -14,7 +14,7 @@ def train_folds(best_config, dataset_path):
     dropout_rate = best_config['dropout_rate']
     collapse_regularization = best_config['collapse_regularization']
     n_clusters = best_config['n_clusters']
-    n_epochs = 50
+    n_epochs = 100
     learning_rate = best_config['learning_rate']
     frustum_length = best_config['frustum_length']
     frustum_angle = best_config['frustum_angle']
@@ -27,7 +27,7 @@ def train_folds(best_config, dataset_path):
     for fold in range(1, 6):
         dataset_fold_path = os.path.join(dataset_path + f'_fold{fold}', 'train')
 
-        experiment_folder = f'experiments_{dataset_folder}_folds_new_edge_weights'
+        experiment_folder = os.path.join(f'Experiments_tests', f'{dataset_folder}_folds')
         subprocess.run(
             f'python src/train.py -F {experiment_folder} with '
             f'common.architecture="{architecture}" '
@@ -36,12 +36,12 @@ def train_folds(best_config, dataset_path):
             f'common.n_clusters={n_clusters} '
             f'n_epochs={n_epochs} '
             f'common.learning_rate={learning_rate} '
-            f'common.frustum_length={1} '
-            f'common.frustum_angle={math.pi/4} '
-            f'common.edge_cutoff={0.4} '
-            f'common.features_as_pos=True '
+            f'common.frustum_length={frustum_length} '
+            f'common.frustum_angle={frustum_angle} '
+            f'common.edge_cutoff={edge_cutoff} '
+            f'common.features_as_pos={features_as_pos} '
             f'common.dataset_path={dataset_fold_path} '
-            f'common.edges_from_gt=False '  # Graph edges initialized from ground truth
+            f'common.edges_from_gt={edges_from_gt} '  # Graph edges initialized from ground truth
             f'common.select_frames_random=True '
             f'-d'
         )
@@ -54,8 +54,9 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_path = os.path.join('data', 'salsa_cpp')
-    best_metrics = get_best_metrics(os.path.join('Experiments', 'salsa_cpp_hyperparams'))
+    dataset_name = 'salsa_cpp'
+    dataset_path = os.path.join('data', dataset_name)
+    best_metrics = get_best_metrics(os.path.join('Experiments', f'{dataset_name}_frustum'))
     best_experiment_path = best_metrics['max_full_f1']['path']
     best_config = get_best_config(best_experiment_path)
     train_folds(best_config, dataset_path)

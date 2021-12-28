@@ -41,18 +41,17 @@ def get_best_config(experiment_folder):
 
 
 def post_process(data_path):
-    best_full_index = []
-    best_card_index = []
+    window_ranges_ma = np.arange(2, 10, 1)
+    window_ranges_ema = np.arange(0.1, 1, .1)
+    main_loop(data_path, window_ranges_ma, 'post_process_results_ma.xlsx', moving_average)
+    main_loop(data_path, window_ranges_ema, 'post_process_results_ema.xlsx', exponential_moving_average)
 
-    all_fold_full_f1_scores = []
-    all_fold_card_f1_scores = []
-    # window_ranges = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9]
-    # window_ranges = np.arange(0.1, 0.3, 0.01)
-    # window_ranges = np.arange(0.1, 1, 0.1)
-    window_ranges = np.arange(2, 10, 1)
+
+def main_loop(data_path, window_ranges, excel_filename, average_function):
     previous_scores_full = []
     previous_scores_card = []
-
+    all_fold_full_f1_scores = []
+    all_fold_card_f1_scores = []
     pd_rows_full_f1 = [[data_path] * 2 + ['Window Length'] * (len(window_ranges) + 1),
                        [data_path] * 2 + ['Unprocessed'] + list(window_ranges)]
     pd_rows_card_f1 = [[data_path] * 2 + ['Window Length'] * (len(window_ranges) + 1),
@@ -82,7 +81,7 @@ def post_process(data_path):
             assignments = np.load(assignments_file)
             # new_preds = moving_average(assignments, window_len)
             # new_preds = exponential_moving_average(assignments, window_len)
-            new_preds = moving_average(assignments, window_len)
+            new_preds = average_function(assignments, window_len)
             # assignments[window_len - 1:] = new_preds
             clusters = new_preds.argmax(axis=-1)
 
@@ -115,36 +114,28 @@ def post_process(data_path):
         pd_rows_card_f1.append(['Folds', fold, previous_card] + card_f1_scores)
         all_fold_full_f1_scores.append(full_f1_scores)
         all_fold_card_f1_scores.append(card_f1_scores)
-
     all_fold_full_f1_scores = np.array(all_fold_full_f1_scores)
     all_fold_card_f1_scores = np.array(all_fold_card_f1_scores)
-
     fold_averages_full = all_fold_full_f1_scores.mean(axis=0)
     fold_averages_card = all_fold_card_f1_scores.mean(axis=0)
-
     best_full_index = fold_averages_full.argmax()
     best_card_index = fold_averages_card.argmax()
-
     full_window = window_ranges[best_full_index]
     card_window = window_ranges[best_card_index]
-
     pd_rows_full_f1 = [[data_path] + ['Folds'] * 5, [data_path] + list(range(1, 6)) + ['Average']]
     pd_rows_card_f1 = [[data_path] + ['Folds'] * 5, [data_path] + list(range(1, 6)) + ['Average']]
-
     pd_rows_full_f1.append(['Unprocessed'] + previous_scores_full + [np.mean(previous_scores_full)])
     pd_rows_card_f1.append(['Unprocessed'] + previous_scores_card + [np.mean(previous_scores_card)])
-
     pd_rows_full_f1.append([full_window] + all_fold_full_f1_scores[:, best_full_index].tolist() + [
         np.mean(fold_averages_full[best_full_index])])
     pd_rows_card_f1.append([card_window] + all_fold_card_f1_scores[:, best_card_index].tolist() + [
         np.mean(fold_averages_card[best_card_index])])
 
-    # with pd.ExcelWriter(os.path.join(data_path, f'post_process_results.xlsx')) as writer:
-    with pd.ExcelWriter(os.path.join(data_path, f'post_process_results_ma.xlsx')) as writer:
+    with pd.ExcelWriter(os.path.join(data_path, excel_filename)) as writer:
         pd.DataFrame(pd_rows_full_f1).to_excel(writer, sheet_name='Full F1 Scores')
         pd.DataFrame(pd_rows_card_f1).to_excel(writer, sheet_name='Card F1 Scores')
 
 
 if __name__ == '__main__':
-    data_path = 'experiments_salsa_cpp_best_combined'
+    data_path = os.path.join('Experiments_tests','salsa_combined_folds_test')
     post_process(data_path)

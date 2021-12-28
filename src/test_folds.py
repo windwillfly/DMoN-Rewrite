@@ -5,6 +5,13 @@ import subprocess
 
 def test_folds(dataset_path, experiment_name):
 
+    dataset_name = os.path.basename(dataset_path)
+    dataset_video_mapping = {'salsa_cpp': 'salsa_cpp_cam4.avi',
+                             'salsa_ps': 'salsa_ps_cam3.avi',
+                             'salsa_combined': 'salsa_combined_cam3.avi'}
+
+    video_name = dataset_video_mapping[dataset_name]
+    video_path = os.path.join('videos', video_name)
     for fold in range(1, 6):
         best_data_path = os.path.join(experiment_name, f'{fold}')
         best_config = get_best_config(best_data_path)
@@ -26,6 +33,7 @@ def test_folds(dataset_path, experiment_name):
         experiment_folder = f'{experiment_name}_test'
         subprocess.run(
             f'python src/test.py -F {experiment_folder} with '
+            f'visualization_video_path={video_path} '
             f'common.architecture="{architecture}" '
             f'common.collapse_regularization={collapse_regularization} '
             f'common.dropout_rate={dropout_rate} '
@@ -37,6 +45,7 @@ def test_folds(dataset_path, experiment_name):
             f'common.dataset_path={dataset_fold_path} '
             f'checkpoint_path={ckpt_path} '
             f'common.edges_from_gt={edges_from_gt} '
+            f'-d'
         )
 
 
@@ -48,7 +57,7 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_name = 'salsa_cpp'
+    dataset_name = 'salsa_combined'
     dataset_path = os.path.join('data', dataset_name)
-    experiment_name = f'experiments_{dataset_name}_folds_new_edge_weights'
+    experiment_name = os.path.join(f'Experiments_tests', f'{dataset_name}_folds')
     test_folds(dataset_path, experiment_name)

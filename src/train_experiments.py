@@ -36,28 +36,27 @@ def experiment_network_hyperparameters(dataset_path):
                 subprocess.run(call_string)
 
 
-def experiment_frustum(dataset_path, collapse_regularization=0.5, arch=None, drop_out=0.5, learning_rate=0.0008):
+def experiment_frustum(dataset_path, collapse_regularization=0.2, arch=None, drop_out=0.5, learning_rate=0.001):
     if arch is None:
         arch = [4]
 
-    for frustum_length in np.arange(0.5, 1.5, 0.25):
-        for frustum_angle in range(30, 90, 15):
-            for edge_cutoff in np.arange(0.5, 1.5, 0.25):
-                frustum_angle_rad = math.radians(frustum_angle)
+    for frustum_length in np.arange(0.75, 1.75, 0.25):
+        for frustum_angle in range(2, 5):
+            for edge_cutoff in np.arange(0., 0.6, 0.1):
+                frustum_angle_rad = frustum_angle * math.pi / 12
                 dataset_name = os.path.basename(dataset_path)
 
                 call_string = f'python src/train.py -F Experiments/{dataset_name}_frustum with  ' \
                     f'"common.architecture={arch}" ' \
                     f'"common.collapse_regularization={collapse_regularization}" ' \
                     f'"common.dropout_rate={drop_out}" ' \
-                    f'"common.n_clusters=8" ' \
-                    f'"n_epochs=150" ' \
+                    f'"common.n_clusters={16}" ' \
+                    f'"n_epochs=100" ' \
                     f'"common.learning_rate={learning_rate}" ' \
                     f'"common.frustum_length={frustum_length}" ' \
                     f'"common.frustum_angle={frustum_angle_rad}" ' \
                     f'"common.edge_cutoff={edge_cutoff}" ' \
-                    f'"common.features_as_pos=True" ' \
-                    f'"common.total_frames=max" ' \
+                    f'"common.features_as_pos=False" ' \
                     f'"common.select_frames_random=True" ' \
                     f'"common.dataset_path=data/{dataset_path}" '
                 subprocess.run(call_string)
@@ -109,20 +108,28 @@ def get_experiment_config(experiment_path) -> dict:
 
 
 if __name__ == '__main__':
-    dataset = 'salsa_cpp'
-    #experiment_network_hyperparameters(dataset)
-    # data_path = ['salsa_cpp', 'salsa_ps', 'CMU_salsa_full']
-    # for dataset in data_path:
-    metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
-    config = get_experiment_config(metrics['max_full_f1']['path'])
-    experiment_frustum(dataset,
-                       arch=config['common']['architecture'],
-                       drop_out=config['common']['dropout_rate'],
-                       learning_rate=config['common']['learning_rate'],
-                       collapse_regularization=config['common']['collapse_regularization']
-                       )
-
+    dataset = 'cocktail_party'
+    arch = [32]
+    collapse_regularization = 0.1
+    drop_out = 0.5
+    experiment_frustum(dataset, collapse_regularization=collapse_regularization, drop_out=drop_out, arch=arch)
     metrics = get_best_metrics(fr'Experiments\{dataset}_frustum')
     with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
         print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
         print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)
+    #experiment_network_hyperparameters(dataset)
+    # data_path = ['salsa_cpp', 'salsa_ps', 'CMU_salsa_full']
+    # for dataset in data_path:
+    # metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
+    # config = get_experiment_config(metrics['max_full_f1']['path'])
+    # experiment_frustum(dataset,
+    #                    arch=config['common']['architecture'],
+    #                    drop_out=config['common']['dropout_rate'],
+    #                    learning_rate=config['common']['learning_rate'],
+    #                    collapse_regularization=config['common']['collapse_regularization']
+    #                    )
+    #
+    # metrics = get_best_metrics(fr'Experiments\{dataset}_frustum')
+    # with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
+    #     print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
+    #     print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)
