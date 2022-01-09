@@ -39,7 +39,7 @@ def main(checkpoint_path, visualization_video_path, _run):
                             'salsa_ps': 'SALSA Poster Session',
                             'salsa_combined': 'SALSA Cocktail Party + Poster Session',
                             'cocktail_party': 'Cocktail Party',
-                            'CMU_salsa': 'CMU Pizza Party'}
+                            'cmu_salsa': 'CMU Pizza Party'}
     common_config = _run.config['common']
     dataset_name = re.sub(r'_fold[0-9]', '', common_config['dataset_path'].split(os.path.sep)[1])
     dataset_name = dataset_name_mapping[dataset_name]
@@ -82,24 +82,25 @@ def main(checkpoint_path, visualization_video_path, _run):
 
         _, _, _, _, _, card_f1_score = grode(labels, clusters)
         _, _, _, _, _, full_f1_score = grode(labels, clusters, crit='full')
-        precision = pairwise_precision(labels, clusters[label_indices])
-        recall = pairwise_recall(labels, clusters[label_indices])
-        pairwise_f1_score = 2 * precision * recall / (precision + recall)
+        #precision = pairwise_precision(labels, clusters[label_indices])
+        #recall = pairwise_recall(labels, clusters[label_indices])
+        #pairwise_f1_score = 2 * precision * recall / (precision + recall)
 
         _run.log_scalar("card_f1_of_graph", card_f1_score, frame_no)
         _run.log_scalar("full_f1_of_graph", full_f1_score, frame_no)
-        all_pairwise_f1_score.append(pairwise_f1_score)
+        all_pairwise_f1_score.append(0)
         all_card_score.append(card_f1_score)
         all_full_score.append(full_f1_score)
 
         graphs_folder = os.path.join(experiment_folder, 'graphs')
         os.makedirs(graphs_folder, exist_ok=True)
-        if (full_f1_score < 0.15 and random.randint(0, 10) < 5) or (full_f1_score > 0.6 and random.randint(0, 10) < 5):
+        if random.randint(0, 10) < 2:
             show_results_on_graph(training_graph, frame_no, graphs_folder, title=f'{dataset_name} Test results',
                                   predictions=clusters,
                                   video_path=visualization_video_path, draw_frustum=False,
                                   frustum_length=frustum_length,
-                                  frustum_angle=frustum_angle)
+                                  frustum_angle=frustum_angle,
+                                  edge_cutoff=common_config['edge_cutoff'])
         training_scores.append([card_f1_score, full_f1_score])
 
     with open(os.path.join(experiment_folder, 'results.txt'), 'w') as f:

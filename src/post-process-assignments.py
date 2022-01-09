@@ -85,7 +85,7 @@ def main_loop(data_path, window_ranges, excel_filename, average_function):
         # window_ranges = [2, 3, 4, 5, 6, 7, 8, 9]
         for window_len in window_ranges:
 
-            assignments = np.load(assignments_file)
+            assignments = np.load(assignments_file, allow_pickle=True)
             # new_preds = moving_average(assignments, window_len)
             # new_preds = exponential_moving_average(assignments, window_len)
             new_preds = average_function(assignments, window_len)
@@ -114,7 +114,7 @@ def main_loop(data_path, window_ranges, excel_filename, average_function):
                 print(f'New best full F1 score! New: {final_full_f1_score} - Old: {previous_full}')
                 best_full = final_full_f1_score
             if final_card_f1_score > previous_card and final_card_f1_score > best_card:
-                print(f'New best full F1 score! New: {final_card_f1_score} - Old: {previous_card}')
+                print(f'New best card F1 score! New: {final_card_f1_score} - Old: {previous_card}')
                 best_card = final_card_f1_score
 
         pd_rows_full_f1.append(['Folds', fold, previous_full] + full_f1_scores)
@@ -142,5 +142,5 @@ def main_loop(data_path, window_ranges, excel_filename, average_function):
 
 
 if __name__ == '__main__':
-    data_path = os.path.join('Experiments_tests', 'salsa_combined_folds_test')
+    data_path = os.path.join('Experiments_tests', 'salsa_cpp_node_features_0_folds_test')
     post_process(data_path)

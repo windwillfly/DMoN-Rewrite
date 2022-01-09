@@ -192,18 +192,19 @@ if __name__ == '__main__':
     from utilities.visualization import show_results_on_graph
 
     frustum_angle = math.pi / 4
-    frustum_length = 1
-    edge_distance_threshold = 0.15
-    sc = SalsaConverter(root_folder=os.path.join('data', 'salsa_combined_fold0', 'test'), edges_from_gt=True)
+    frustum_length = 1.25
+    edge_distance_threshold = 0.1
+    sc = SalsaConverter(root_folder=os.path.join('data', 'cocktail_party'), edges_from_gt=False)
     graphs = sc.convert(frustum_angle=frustum_angle, frustum_length=frustum_length,
                         edge_distance_threshold=edge_distance_threshold)
 
     graph_num = 0
-    current_graph = graphs[graph_num]
+    test_graph = graphs[graph_num]
+    clusters = None
 
     # current_graph.remove_nodes_from([node[0] for node in current_graph.nodes(data=True) if node[1]['membership'] != 4])
-    clusters = np.load('predictions.npy')
-    test_graph = nx.read_gpickle('test_graph.pkl')
+    # clusters = np.load('predictions.npy')
+    # test_graph = nx.read_gpickle('test_graph.pkl')
     video_path = 'videos/salsa_ps_cam2.avi'
 
     show_results_on_graph(test_graph, str(graph_num), '.', video_path=video_path, predictions=clusters,

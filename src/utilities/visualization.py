@@ -4,13 +4,15 @@ from itertools import combinations
 import cv2
 import json
 import matplotlib.axes
-import matplotlib.colors as colors
+import matplotlib.colors as np_colors
 import matplotlib.pyplot as plt
 import networkx as nx
 import numpy as np
 import operator
 import os
 from collections import defaultdict
+from functools import lru_cache
+from scipy.spatial import ConvexHull
 from typing import List, Optional
 from utilities.math_utils import calc_frustum, Point
 
@@ -59,16 +61,46 @@ def plot_single_experiment(experiment_name):
 
 def draw_camera(ax: matplotlib.axes.Axes, timestamp, video_path):
     cap = cv2.VideoCapture(video_path)
-    cap.set(cv2.CAP_PROP_POS_MSEC, timestamp*1000)
+    if video_path.endswith('hd_00_07.mp4'):
+        cap.set(cv2.CAP_PROP_POS_FRAMES, int(timestamp))
+    else:
+        cap.set(cv2.CAP_PROP_POS_MSEC, timestamp * 1000)
     ret, frame = cap.read()
     cap.release()
     if ret:
         ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
     else:
-        raise ValueError('Could not read frame from video')
+        pass
 
     ax.axis('off')
     ax.set_title('Camera View')
+
+
+def draw_camera_cocktail(ax: matplotlib.axes.Axes, timestamp, camera_path):
+    @lru_cache(maxsize=1)
+    def get_cached_index_file():
+        index_file = os.path.join(camera_path, 'index.dmp')
+        frame_times = []
+        image_files = []
+        with open(index_file, 'r') as f:
+            for line in f.read().splitlines()[:-1]:
+                image_file, frame_time = line.split(' ')[0], float('.'.join(line.split(' ')[1:]))
+                frame_times.append(float(frame_time))
+                image_files.append(image_file)
+
+        return frame_times, image_files
+
+    def find_nearest_idx(array, value):
+        idx = np.searchsorted(array, value, side="left")
+        return idx
+
+    frame_times, image_files = get_cached_index_file()
+    nearest_time_idx = find_nearest_idx(frame_times, float(timestamp))
+    frame = cv2.imread(os.path.join(camera_path, image_files[nearest_time_idx]))
+    ax.imshow(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
+    ax.axis('off')
+    ax.set_title('Camera View')
+    return
 
 
 def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, video_path: str,
@@ -76,12 +108,12 @@ def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, video_
     os.makedirs(save_path, exist_ok=True)
     fig, (cam_ax, gt_ax, pred_ax) = plt.subplots(1, 3, figsize=(17.2, 6))
 
-    draw_camera(cam_ax, timestamp=graph.nodes[1]['ts'], video_path=video_path)
+    if video_path.startswith(r'D:\datasets\CocktailParty'):
+        draw_camera_cocktail(cam_ax, timestamp=graph.nodes[1]['ts'], camera_path=video_path)
+    else:
+        draw_camera(cam_ax, timestamp=graph.nodes[1]['ts'], video_path=video_path)
 
     plt.suptitle(kwargs['title'])
-
-    gt_ax.axis('equal')
-    pred_ax.axis('equal')
 
     colors = np.asarray(
         ['#38761d', '#01579b', '#fb8c00', '#e77865', '#cbeaad', '#6180c3', '#69de4b', '#c72792', '#6d2827',
@@ -92,15 +124,22 @@ def show_results_on_graph(graph: nx.Graph, frame_no: str, save_path: str, video_
     kwargs.pop('draw_frustum')
     draw_gt_graph(gt_ax, gt_graph, title='Ground Truth', draw_frustum=False, draw_arrows=True, **kwargs)
 
-    prediction_colors = {i + 1: colors[group] for i, group in enumerate(predictions)}
-    nx.set_node_attributes(graph, prediction_colors, 'color')
+    if predictions is not None:
+        prediction_colors = {i + 1: colors[group] for i, group in enumerate(predictions)}
+        groups = {ind + 1: i for ind, i in
+                  enumerate(predictions)}
+        nx.set_node_attributes(graph, prediction_colors, 'color')
+        nx.set_node_attributes(graph, groups, 'membership')
 
-    draw_gt_graph(pred_ax, graph, title='Predictions', draw_frustum=True, draw_arrows=False, **kwargs)
+        draw_gt_graph(pred_ax, graph, title='Predictions', draw_frustum=False, draw_arrows=True, **kwargs)
 
     gt_ax.set_axis_on()
     pred_ax.set_axis_on()
     gt_ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
     pred_ax.tick_params(left=True, bottom=True, labelleft=True, labelbottom=True)
+
+    gt_ax.axis('equal')
+    pred_ax.axis('equal')
 
     plt.tight_layout()
     filename = f'dmon_{frame_no}.png'
@@ -155,8 +194,9 @@ def draw_predictions(graph: nx.Graph, predictions: Optional[List] = None):
 
 
 def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Frame 0", draw_frustum=True,
-                  draw_arrows=True, use_body_orientation=True,
-                  frustum_length=1, frustum_angle=math.pi / 3):
+                  draw_arrows=True, use_body_orientation=True, draw_edges=False,
+                  frustum_length=1, frustum_angle=math.pi / 3,
+                  edge_cutoff=0.2):
     ax.set_title(title)
 
     node_pos = {node_n: feat[:2] for feat, node_n in
@@ -164,33 +204,49 @@ def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Fram
                     nx.get_node_attributes(graph, 'person_no'))}
     node_edgecolors = ['black'] * graph.number_of_nodes()
     linewidths = [1 if c == 'black' else 5 for c in node_edgecolors]
-    # edgewidths = [weight for edge_no, weight in nx.get_edge_attributes(graph, 'weight').items()]
-    edgewidths = 1
-    edgestyle = ['--' if edgeweight <= 0.5 else '-' for edgeweight in nx.get_edge_attributes(graph, 'weight').values()]
-    # edgestyle = '-'
-    nx.draw(
-        graph,
-        node_color=list(nx.get_node_attributes(graph, 'color').values()),
-        # node_color='dimgray',
-        pos=node_pos,
-        linewidths=linewidths,
-        width=edgewidths, ax=ax, node_size=350, edgecolors=node_edgecolors, style=edgestyle)
-    # nx.draw_networkx_edge_labels(graph, pos=node_pos, edge_labels={k: f'{v:.1f}' for k, v in
-    #                                                               nx.get_edge_attributes(graph, 'weight').items()},
-    #                             ax=ax)
 
-    for person_id, feat in zip(nx.get_node_attributes(graph, 'person_no'), nx.get_node_attributes(graph, 'feats').values()):
+    if draw_edges:
+        edgestyle = ['--' if edgeweight <= edge_cutoff else '-' for edgeweight in
+                     nx.get_edge_attributes(graph, 'weight').values()]
+        edgewidths = 10
+        # TODO draw edges on axis
+        pass
+
+    person_ids = np.asarray(list(nx.get_node_attributes(graph, 'person_no').values()))
+    membership = list(nx.get_node_attributes(graph, 'membership').values())
+    groups = [person_ids[np.argwhere(membership == i).flatten()].tolist() for i in np.unique(membership)]
+
+    for group_index, group in enumerate(groups):
+        points_for_convex_hull = []
+        for person_index in group:
+            person_pos = graph.nodes[person_index]['feats'][:2]
+            group_color = graph.nodes[person_index]['color']
+            points_for_convex_hull.append(person_pos)
+
+        if len(points_for_convex_hull) > 2:
+            hull = ConvexHull(points_for_convex_hull)
+            draw_convex_hull(ax, hull, points_for_convex_hull, color=group_color)
+        elif len(points_for_convex_hull) == 2:
+            draw_group_indicator(ax, points_for_convex_hull, color=group_color)
+        for person_index in group:
+            person_pos = graph.nodes[person_index]['feats'][:2]
+            draw_person(ax, person_pos=person_pos, color=group_color)
+
+    for person_id, feat in zip(nx.get_node_attributes(graph, 'person_no'),
+                               nx.get_node_attributes(graph, 'feats').values()):
         xpos, ypos = feat[:2]
         ax.annotate(str(person_id), (xpos - 0.25, ypos - 0.25), size=10)
+
     if draw_frustum:
         # Draw view frustum
         for feat, color in zip(nx.get_node_attributes(graph, 'feats').values(),
                                nx.get_node_attributes(graph, 'color').values()):
-            frustum = calc_frustum(feat, frustum_length=frustum_length, frustum_angle=frustum_angle, use_body=use_body_orientation)
-            facecolor = (*colors.to_rgba('yellow')[:3], 0.05)
-            edgecolor = (*colors.to_rgba('gray')[:3], 1)
+            frustum = calc_frustum(feat, frustum_length=frustum_length, frustum_angle=frustum_angle,
+                                   use_body=use_body_orientation)
+            facecolor = (*np_colors.to_rgba('yellow')[:3], 0.05)
+            edgecolor = (*np_colors.to_rgba('gray')[:3], 1)
             t1 = plt.Polygon(frustum, edgecolor=edgecolor, facecolor=facecolor, linewidth=0.5)
-            plt.gca().add_patch(t1)
+            ax.add_patch(t1)
 
     if draw_arrows:
         for feat, color in zip(nx.get_node_attributes(graph, 'feats').values(),
@@ -202,10 +258,21 @@ def draw_gt_graph(ax, graph: nx.Graph, title: str = "Salsa Cocktail Party - Fram
             dy = math.sin(person_theta) * arrow_length
             ax.arrow(person_pos.x, person_pos.y, dx, dy, head_width=0.08, head_length=0.14, fc=color, zorder=10)
 
-    for person_feat, person_no in zip(nx.get_node_attributes(graph, 'feats').values(),
-                                      nx.get_node_attributes(graph, 'person_no').values()):
-        text_pos = Point(*person_feat[:2]) + Point(0.15, 0.15)
-        # ax.text(*text_pos, person_no)
+
+def draw_person(ax, color, person_pos):
+    xpos, ypos = person_pos
+    plot_params = {'x': xpos, 'y': ypos, 'c': color, 's': 300, 'zorder': 2}
+    ax.scatter(**plot_params)
+
+
+def draw_group_indicator(ax, points: List, color: str = '#ff0000'):
+    points = np.array(points).T
+    ax.plot(points[0], points[1], c=color, linewidth=10, alpha=0.2, zorder=0)
+
+
+def draw_convex_hull(ax, hull: ConvexHull, points: List, color: str = 'red'):
+    points = np.array(points)
+    ax.fill(points[hull.vertices, 0], points[hull.vertices, 1], color, alpha=0.2)
 
 
 def toy_frustum_example() -> nx.Graph:

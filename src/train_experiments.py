@@ -1,39 +1,54 @@
-import math
-
 import json
-import numpy as np
+import math
 import os
 import subprocess
+from concurrent.futures import ProcessPoolExecutor
+import concurrent.futures
+
+import numpy as np
 
 
 def experiment_network_hyperparameters(dataset_path):
     architectures = [[4], [16], [32]]
     # architectures = [list(map(str, a)) for a in architectures]
+    clusters = {'salsa_combined': 16,
+                'salsa_cpp': 16,
+                'salsa_ps': 8,
+                'cmu_salsa': 5,
+                'cocktail_party': 5}
 
-    for collapse_reg in range(1, 5):
-        for dropout_rate in range(1, 5):
-            for architecture in architectures:
-                cr = collapse_reg / 10
-                dr = dropout_rate / 10
-                lr = 0.001
-                arch = str(architecture).replace(' ', '')
-                dataset_name = os.path.basename(dataset_path)
+    with ProcessPoolExecutor(max_workers=4) as executor:
+        futures = []
+        features_as_pos = [False]
+        for feats in features_as_pos:
+            for collapse_reg in range(1, 5):
+                for dropout_rate in range(1, 5):
+                    for architecture in architectures:
+                        cr = collapse_reg / 10
+                        dr = dropout_rate / 10
+                        lr = 0.001
+                        arch = str(architecture).replace(' ', '')
+                        dataset_name = os.path.basename(dataset_path)
+                        n_clusters = clusters[dataset_name]
 
-                call_string = f'python src/train.py -F Experiments/{dataset_name}_hyperparams with ' \
-                              f'common.architecture={arch} ' \
-                              f'common.collapse_regularization={cr} ' \
-                              f'common.dropout_rate={dr} ' \
-                              f'common.n_clusters=16 ' \
-                              f'n_epochs=75 ' \
-                              f'common.learning_rate={lr} ' \
-                              f'common.frustum_length=1.25 ' \
-                              f'common.frustum_angle=0.7853981633974483 ' \
-                              f'common.edge_cutoff=0 ' \
-                              f'common.features_as_pos=True ' \
-                              f'common.total_frames=max ' \
-                              f'common.select_frames_random=True ' \
-                              f'common.dataset_path=data/{dataset_path} '
-                subprocess.run(call_string)
+                        call_string = f'python src/train.py -F Experiments/{dataset_name}_hyperparams with ' \
+                                      f'common.architecture={arch} ' \
+                                      f'common.collapse_regularization={cr} ' \
+                                      f'common.dropout_rate={dr} ' \
+                                      f'common.n_clusters={n_clusters} ' \
+                                      f'n_epochs=75 ' \
+                                      f'common.learning_rate={lr} ' \
+                                      f'common.frustum_length=1.25 ' \
+                                      f'common.frustum_angle=0.7853981633974483 ' \
+                                      f'common.edge_cutoff=0 ' \
+                                      f'common.features_as_pos={feats} ' \
+                                      f'common.select_frames_random=True ' \
+                                      f'common.dataset_path=data/{dataset_path} '
+
+                        futures.append(executor.submit(subprocess.run, call_string))
+
+        for future in concurrent.futures.as_completed(futures):
+            print(future.result())
 
 
 def experiment_frustum(dataset_path, collapse_regularization=0.2, arch=None, drop_out=0.5, learning_rate=0.001):
@@ -47,18 +62,18 @@ def experiment_frustum(dataset_path, collapse_regularization=0.2, arch=None, dro
                 dataset_name = os.path.basename(dataset_path)
 
                 call_string = f'python src/train.py -F Experiments/{dataset_name}_frustum with  ' \
-                    f'"common.architecture={arch}" ' \
-                    f'"common.collapse_regularization={collapse_regularization}" ' \
-                    f'"common.dropout_rate={drop_out}" ' \
-                    f'"common.n_clusters={16}" ' \
-                    f'"n_epochs=100" ' \
-                    f'"common.learning_rate={learning_rate}" ' \
-                    f'"common.frustum_length={frustum_length}" ' \
-                    f'"common.frustum_angle={frustum_angle_rad}" ' \
-                    f'"common.edge_cutoff={edge_cutoff}" ' \
-                    f'"common.features_as_pos=False" ' \
-                    f'"common.select_frames_random=True" ' \
-                    f'"common.dataset_path=data/{dataset_path}" '
+                              f'"common.architecture={arch}" ' \
+                              f'"common.collapse_regularization={collapse_regularization}" ' \
+                              f'"common.dropout_rate={drop_out}" ' \
+                              f'"common.n_clusters={16}" ' \
+                              f'"n_epochs=100" ' \
+                              f'"common.learning_rate={learning_rate}" ' \
+                              f'"common.frustum_length={frustum_length}" ' \
+                              f'"common.frustum_angle={frustum_angle_rad}" ' \
+                              f'"common.edge_cutoff={edge_cutoff}" ' \
+                              f'"common.features_as_pos=True" ' \
+                              f'"common.select_frames_random=True" ' \
+                              f'"common.dataset_path=data/{dataset_path}" '
                 subprocess.run(call_string)
 
 
@@ -108,13 +123,14 @@ def get_experiment_config(experiment_path) -> dict:
 
 
 if __name__ == '__main__':
-    dataset = 'salsa_combined'
+    dataset = 'cmu_salsa'
     experiment_network_hyperparameters(dataset)
-    metrics = get_best_metrics(fr'Experiments\{dataset}_frustum')
-    with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
-        print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
-        print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)
-    #experiment_network_hyperparameters(dataset)
+    metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
+    print(metrics)
+    # with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
+    #     print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
+    #     print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)
+    # experiment_network_hyperparameters(dataset)
     # data_path = ['salsa_cpp', 'salsa_ps', 'CMU_salsa_full']
     # for dataset in data_path:
     # metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
