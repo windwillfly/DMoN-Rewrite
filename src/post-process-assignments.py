@@ -1,10 +1,8 @@
 import json
-import os.path
-
 import networkx as nx
 import numpy as np
+import os.path
 import pandas as pd
-
 from utilities.converters import SalsaConverter
 from utilities.metrics import grode
 
@@ -14,6 +12,10 @@ def moving_average(arr, n):
     ret[n:] = ret[n:] - ret[:-n]
     ret[n - 1:] /= n
     return ret
+
+
+def exponential_moving_average_cmu(arr, alpha):
+    pass
 
 
 # Recursively calculates exponential moving average of a given array
