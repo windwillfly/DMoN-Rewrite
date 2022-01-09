@@ -14,7 +14,16 @@ def moving_average(arr, n):
     return ret
 
 
+def moving_average_cmu(arr, n):
+    ret = np.cumsum(arr, axis=0, dtype=float)
+    ret[n:] = ret[n:] - ret[:-n]
+    ret[n - 1:] /= n
+    return ret
+
+
 def exponential_moving_average_cmu(arr, alpha):
+    print(arr)
+    print(alpha)
     pass
 
 
@@ -47,16 +56,22 @@ def get_best_config(experiment_folder):
 def post_process(data_path):
     window_ranges_ma = np.arange(2, 10, 1)
     window_ranges_ema = np.arange(0.1, 1, .1)
-    mafull, macard = main_loop(data_path, window_ranges_ma, 'post_process_results_ma.xlsx', moving_average)
-    emafull, emacard = main_loop(data_path, window_ranges_ema, 'post_process_results_ema.xlsx',
-                                 exponential_moving_average)
+
+    if 'cmu_salsa' in data_path:
+        mafull, macard = main_loop(data_path, window_ranges_ma, moving_average_cmu)
+        emafull, emacard = main_loop(data_path, window_ranges_ema,
+                                     exponential_moving_average_cmu)
+    else:
+        mafull, macard = main_loop(data_path, window_ranges_ma, moving_average)
+        emafull, emacard = main_loop(data_path, window_ranges_ema,
+                                     exponential_moving_average)
 
     with pd.ExcelWriter(os.path.join(data_path, 'post_process_results.xlsx')) as writer:
         pd.concat([pd.DataFrame(mafull), pd.DataFrame(macard), pd.DataFrame(emafull), pd.DataFrame(emacard)]).to_excel(
             writer, sheet_name='Scores')
 
 
-def main_loop(data_path, window_ranges, excel_filename, average_function):
+def main_loop(data_path, window_ranges, average_function):
     previous_scores_full = []
     previous_scores_card = []
     all_fold_full_f1_scores = []
@@ -144,5 +159,5 @@ def main_loop(data_path, window_ranges, excel_filename, average_function):
 
 
 if __name__ == '__main__':
-    data_path = os.path.join('Experiments_tests', 'salsa_cpp_node_features_0_folds_test')
+    data_path = os.path.join('Experiments_tests', 'cmu_salsa_hyperparams_26_folds_test')
     post_process(data_path)

@@ -1,3 +1,4 @@
+import json
 import networkx as nx
 import numpy as np
 import os
@@ -6,7 +7,7 @@ import re
 import tensorflow as tf
 from sacred import Experiment
 from utilities.common import generate_graph_inputs, build_dmon, common_ingredient, convert_salsa_to_graphs
-from utilities.metrics import grode, pairwise_precision, pairwise_recall
+from utilities.metrics import grode
 from utilities.visualization import show_results_on_graph
 
 tf.compat.v1.enable_v2_behavior()
@@ -72,19 +73,33 @@ def main(checkpoint_path, visualization_video_path, _run):
     all_full_score = []
     all_pairwise_f1_score = []
     training_scores = []
-    prediction_probs = []
+    prediction_probs = {'predictions': []}
+    max_person_no = 0
+    min_person_no = float('inf')
 
     for frame_no, training_graph in enumerate(all_graphs):
         labels = np.array([m for m in nx.get_node_attributes(training_graph, 'membership').values()])
         adjacency, features, graph, graph_normalized, n_nodes = generate_graph_inputs(training_graph)
         clusters, assignments = obtain_clusters(features, graph, graph_normalized, model)
-        prediction_probs.append(assignments)
+
+        person_predictions = {}
+
+        for person_no, prediction in zip(list(nx.get_node_attributes(training_graph, 'person_no').values()),
+                                         assignments.tolist()):
+
+            person_predictions[person_no] = prediction
+
+            if person_no > max_person_no:
+                max_person_no = person_no
+                prediction_probs['max_person'] = max_person_no
+            if person_no < min_person_no:
+                min_person_no = person_no
+                prediction_probs['min_person'] = min_person_no
+
+        prediction_probs['predictions'].append(person_predictions)
 
         _, _, _, _, _, card_f1_score = grode(labels, clusters)
         _, _, _, _, _, full_f1_score = grode(labels, clusters, crit='full')
-        #precision = pairwise_precision(labels, clusters[label_indices])
-        #recall = pairwise_recall(labels, clusters[label_indices])
-        #pairwise_f1_score = 2 * precision * recall / (precision + recall)
 
         _run.log_scalar("card_f1_of_graph", card_f1_score, frame_no)
         _run.log_scalar("full_f1_of_graph", full_f1_score, frame_no)
@@ -108,4 +123,5 @@ def main(checkpoint_path, visualization_video_path, _run):
         print(f'All Card F1 score: {np.mean(all_card_score, axis=0)}', file=f)
         print(f'All Full F1 score: {np.mean(all_full_score, axis=0)}', file=f)
 
-    np.save(os.path.join(experiment_folder, 'prediction_probs'), prediction_probs)
+    with open(os.path.join(experiment_folder, 'predictions.json'), 'w') as f:
+        json.dump(prediction_probs, f)
