@@ -112,7 +112,7 @@ def main(checkpoint_path, visualization_video_path, _run):
         if random.randint(0, 10) < 2:
             show_results_on_graph(training_graph, frame_no, graphs_folder, title=f'{dataset_name} Test results',
                                   predictions=clusters,
-                                  video_path=visualization_video_path, draw_frustum=False,
+                                  video_path=visualization_video_path, draw_frustum=True,
                                   frustum_length=frustum_length,
                                   frustum_angle=frustum_angle,
                                   edge_cutoff=common_config['edge_cutoff'])

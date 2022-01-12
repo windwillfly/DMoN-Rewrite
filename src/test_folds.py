@@ -68,7 +68,7 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_name = 'cmu_salsa'
+    dataset_name = 'cocktail_party'
     dataset_path = os.path.join('data', dataset_name)
-    experiment_name = os.path.join(f'Experiments_tests', f'{dataset_name}_hyperparams_26_folds')
+    experiment_name = os.path.join(f'Experiments_tests', f'{dataset_name}_hyperparams_4_folds')
     test_folds(dataset_path, experiment_name)

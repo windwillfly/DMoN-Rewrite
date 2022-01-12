@@ -19,10 +19,10 @@ def experiment_network_hyperparameters(dataset_path):
 
     with ProcessPoolExecutor(max_workers=4) as executor:
         futures = []
-        features_as_pos = [False]
+        features_as_pos = [True]
         for feats in features_as_pos:
-            for collapse_reg in range(1, 5):
-                for dropout_rate in range(1, 5):
+            for collapse_reg in range(1, 8):
+                for dropout_rate in range(1, 8):
                     for architecture in architectures:
                         cr = collapse_reg / 10
                         dr = dropout_rate / 10
@@ -123,10 +123,15 @@ def get_experiment_config(experiment_path) -> dict:
 
 
 if __name__ == '__main__':
-    dataset = 'cmu_salsa'
-    experiment_network_hyperparameters(dataset)
-    metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
-    print(metrics)
+    dataset = 'cocktail_party'
+    # experiment_network_hyperparameters(dataset)
+    # metrics = get_best_metrics(fr'Experiments\{dataset}_hyperparams')
+    experiment_frustum(dataset,
+                       collapse_regularization=0.1,
+                       arch=[4],
+                       drop_out=0.1,
+                       learning_rate=0.001)
+    # print(metrics)
     # with open(fr'Experiments\{dataset}_frustum\best_accs.txt', 'w') as f:
     #     print(f'Best FULL f1: {metrics["max_full_f1"]["path"]} - {metrics["max_full_f1"]["score"]}', file=f)
     #     print(f'Best CARD f1: {metrics["max_card_f1"]["path"]} - {metrics["max_card_f1"]["score"]}', file=f)

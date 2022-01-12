@@ -64,9 +64,9 @@ def get_best_config(experiment_folder):
 
 
 if __name__ == '__main__':
-    dataset_name = 'salsa_cpp'
+    dataset_name = 'cocktail_party'
     dataset_path = os.path.join('data', dataset_name)
-    best_metrics = get_best_metrics(os.path.join('Experiments', f'{dataset_name}_node_features'))
+    best_metrics = get_best_metrics(os.path.join('Experiments', f'{dataset_name}_hyperparams'))
     best_experiment_path = best_metrics['max_full_f1']['path']
     # best_experiment_path = os.path.join('Experiments', f'salsa_combined_frustum', 'best')
     best_config = get_best_config(best_experiment_path)

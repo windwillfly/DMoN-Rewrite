@@ -3,6 +3,8 @@ import networkx as nx
 import numpy as np
 import os.path
 import pandas as pd
+import matplotlib.pyplot as plt
+
 from utilities.converters import SalsaConverter
 from utilities.metrics import grode
 
@@ -12,19 +14,6 @@ def moving_average(arr, n):
     ret[n:] = ret[n:] - ret[:-n]
     ret[n - 1:] /= n
     return ret
-
-
-def moving_average_cmu(arr, n):
-    ret = np.cumsum(arr, axis=0, dtype=float)
-    ret[n:] = ret[n:] - ret[:-n]
-    ret[n - 1:] /= n
-    return ret
-
-
-def exponential_moving_average_cmu(arr, alpha):
-    print(arr)
-    print(alpha)
-    pass
 
 
 # Recursively calculates exponential moving average of a given array
@@ -57,14 +46,9 @@ def post_process(data_path):
     window_ranges_ma = np.arange(2, 10, 1)
     window_ranges_ema = np.arange(0.1, 1, .1)
 
-    if 'cmu_salsa' in data_path:
-        mafull, macard = main_loop(data_path, window_ranges_ma, moving_average_cmu)
-        emafull, emacard = main_loop(data_path, window_ranges_ema,
-                                     exponential_moving_average_cmu)
-    else:
-        mafull, macard = main_loop(data_path, window_ranges_ma, moving_average)
-        emafull, emacard = main_loop(data_path, window_ranges_ema,
-                                     exponential_moving_average)
+    mafull, macard = main_loop(data_path, window_ranges_ma, moving_average)
+    emafull, emacard = main_loop(data_path, window_ranges_ema,
+                                 exponential_moving_average)
 
     with pd.ExcelWriter(os.path.join(data_path, 'post_process_results.xlsx')) as writer:
         pd.concat([pd.DataFrame(mafull), pd.DataFrame(macard), pd.DataFrame(emafull), pd.DataFrame(emacard)]).to_excel(
@@ -90,23 +74,29 @@ def main_loop(data_path, window_ranges, average_function):
         config = get_best_config(folder)
         if 'common' in config:
             config = config['common']
-        sc = SalsaConverter(root_folder=config['dataset_path'], edges_from_gt=False)
+        sc = SalsaConverter(root_folder=config['dataset_path'], edges_from_gt=True)
         all_graphs = sc.convert(edge_distance_threshold=config['edge_cutoff'],
                                 frustum_length=config['frustum_length'],
                                 frustum_angle=config['frustum_angle'])
-        assignments_file = os.path.join(folder, 'prediction_probs.npy')
+        assignments_file = os.path.join(folder, 'predictions.json')
+        with open(assignments_file) as f:
+            info_json = json.load(f)
+
+        predictions = info_json['predictions']
+        total_frames = len(predictions)
+        num_people = info_json['max_person'] - info_json['min_person'] + 1
+        assignments = np.zeros((total_frames, num_people, config['n_clusters']))
+        for cur_frame, frame_predictions in enumerate(info_json['predictions']):
+            for person_id, person_predictions in frame_predictions.items():
+                person_id = int(person_id) - 1
+                assignments[cur_frame, person_id] = person_predictions
 
         full_f1_scores = []
         card_f1_scores = []
 
-        # window_ranges = [2, 3, 4, 5, 6, 7, 8, 9]
         for window_len in window_ranges:
 
-            assignments = np.load(assignments_file, allow_pickle=True)
-            # new_preds = moving_average(assignments, window_len)
-            # new_preds = exponential_moving_average(assignments, window_len)
             new_preds = average_function(assignments, window_len)
-            # assignments[window_len - 1:] = new_preds
             clusters = new_preds.argmax(axis=-1)
 
             all_card_score = []
@@ -159,5 +149,5 @@ def main_loop(data_path, window_ranges, average_function):
 
 
 if __name__ == '__main__':
-    data_path = os.path.join('Experiments_tests', 'cmu_salsa_hyperparams_26_folds_test')
+    data_path = os.path.join('Experiments_tests', 'cocktail_party_hyperparams_4_folds_test')
     post_process(data_path)
